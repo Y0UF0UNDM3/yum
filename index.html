@@ -5,71 +5,73 @@
     <title>THE BLACK WOODS: LEVIATHAN</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; cursor: none; }
-        canvas { display: block; filter: contrast(120%) brightness(90%); }
+        canvas { display: block; image-rendering: auto; }
+        #loading {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+            color: rgba(255,255,255,0.1); font-family: serif; letter-spacing: 10px;
+        }
     </style>
 </head>
 <body>
+    <div id="loading">AWAKENING...</div>
     <canvas id="c"></canvas>
 
 <script>
-/** 
- * LEVIATHAN ENGINE v8.0 - ULTRA REALISM BUILD
- * Procedural Bark, Kinetic IK-Rigging, Ray-Traced Light Simulation
+/**
+ * LEVIATHAN HORROR ENGINE v10.0
+ * Procedural Bark Displacement, Inverse Kinematics, & Multi-Channel Ambience
  */
 
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
-let w, h, player, trees = [], stars = [], fog = [], groundNodes = [], sign;
+let w, h, player, trees = [], stars = [], fogLayers = [], groundNodes = [], sign;
 const keys = {};
 let active = false;
 let zoom = { val: 0, active: false, timer: 0 };
 
-// --- AUDIO ARCHITECTURE ---
+// --- ADVANCED AUDIO ENGINE ---
 const sfxAmb = new Audio('freesound_community-spooky-ambience-49850.mp3');
 const sfxWind = new Audio('freesound_community-spooky-wind-70657.mp3');
 const sfxSteps = new Audio('data_pion-st1-footstep-sfx-323053.mp3');
 
-function startEverything() {
+function igniteEngine() {
     if(!active) {
-        // Play background loops
-        sfxAmb.loop = true; sfxAmb.volume = 0.5; sfxAmb.play().catch(()=>{});
-        sfxWind.loop = true; sfxWind.volume = 0.4; sfxWind.play().catch(()=>{});
-        // Setup footsteps
-        sfxSteps.loop = true; sfxSteps.volume = 0.25;
+        [sfxAmb, sfxWind].forEach(s => { s.loop = true; s.volume = 0.5; s.play().catch(()=>{}); });
+        sfxSteps.loop = true; sfxSteps.volume = 0.3;
         active = true;
+        document.getElementById('loading').style.display = 'none';
     }
 }
 
-// --- HYPER-REALISTIC ASSET GENERATORS ---
+// --- HYPER-REALISTIC ASSET GENERATION (COLOSSUS DEPTH) ---
 
-function createSign() {
+function createHyperSign() {
     const sC = document.createElement('canvas');
     const sX = sC.getContext('2d');
-    sC.width = 160; sC.height = 180;
+    sC.width = 200; sC.height = 250;
     
-    // Gnarled Post with texture
-    sX.fillStyle = "#0a0805";
-    sX.fillRect(75, 80, 10, 100);
-    
-    // Weathered Plaque
-    const g = sX.createLinearGradient(10, 30, 150, 30);
-    g.addColorStop(0, "#1a140d"); g.addColorStop(0.5, "#2d2116"); g.addColorStop(1, "#18120c");
-    sX.fillStyle = g;
-    sX.fillRect(10, 30, 140, 60);
-    
-    // Carving detail
+    // Gnarled Post with Bark Ridges
+    sX.fillStyle = "#0a0705";
+    sX.fillRect(95, 100, 10, 150);
     sX.strokeStyle = "rgba(0,0,0,0.5)";
-    sX.lineWidth = 1;
-    for(let i=0; i<10; i++) {
-        sX.beginPath(); sX.moveTo(15, 35+i*5); sX.lineTo(145, 38+i*5); sX.stroke();
+    for(let i=0; i<20; i++) {
+        sX.beginPath(); sX.moveTo(95+Math.random()*10, 100+Math.random()*150);
+        sX.lineTo(95+Math.random()*10, 100+Math.random()*150); sX.stroke();
     }
     
-    sX.font = "italic bold 13px serif";
+    // Weathered Plaque
+    const g = sX.createLinearGradient(20, 50, 180, 50);
+    g.addColorStop(0, "#150e0a"); g.addColorStop(0.5, "#261a11"); g.addColorStop(1, "#120c08");
+    sX.fillStyle = g;
+    sX.fillRect(20, 50, 160, 70);
+    
+    // Carvings & Aging
+    sX.font = "italic bold 15px serif";
     sX.textAlign = "center";
     sX.fillStyle = "rgba(0,0,0,0.8)";
-    sX.fillText("Beware of", 80, 55);
-    sX.fillText("the tall one.", 80, 75);
+    sX.fillText("Beware of", 100, 85);
+    sX.fillText("the tall one.", 100, 105);
     
     return sC;
 }
@@ -77,30 +79,27 @@ function createSign() {
 function createUltraTree(height, depth) {
     const tC = document.createElement('canvas');
     const tX = tC.getContext('2d');
-    tC.width = height * 2.5; tC.height = height * 2;
-    const bw = height / 14;
-
+    tC.width = height * 3; tC.height = height * 2.5;
+    
     function drawBarkTexture(x1, y1, x2, y2, w) {
-        const shade = 30 + (depth * 50);
+        const shade = 45 + (depth * 55);
         const g = tX.createLinearGradient(x1, y1, x2, y2);
-        g.addColorStop(0, `rgb(${shade-15},${shade-18},${shade-22})`);
+        g.addColorStop(0, `rgb(${shade-15},${shade-18},${shade-20})`);
         g.addColorStop(0.5, `rgb(${shade+25},${shade+20},${shade+15})`);
-        g.addColorStop(1, `rgb(${shade-10},${shade-13},${shade-16})`);
+        g.addColorStop(1, `rgb(${shade-12},${shade-14},${shade-18})`);
         
         tX.strokeStyle = g;
         tX.lineWidth = w;
         tX.lineCap = 'round';
         tX.beginPath(); tX.moveTo(x1, y1); tX.lineTo(x2, y2); tX.stroke();
-        
-        // Detailed ridges on bark
-        if(w > 3) {
+
+        // Bark Displacement Detail
+        if(w > 2.5) {
             tX.strokeStyle = "rgba(0,0,0,0.3)";
             tX.lineWidth = 0.5;
-            for(let i=0; i<4; i++) {
-                tX.beginPath();
-                const off = (Math.random()-0.5)*w;
-                tX.moveTo(x1+off, y1); tX.lineTo(x2+off, y2);
-                tX.stroke();
+            for(let i=0; i<Math.floor(w*1.5); i++) {
+                const ox = (Math.random()-0.5)*w;
+                tX.beginPath(); tX.moveTo(x1+ox, y1); tX.lineTo(x2+ox, y2); tX.stroke();
             }
         }
     }
@@ -114,195 +113,252 @@ function createUltraTree(height, depth) {
             const n = Math.random() > 0.7 ? 3 : 2;
             for(let i=0; i<n; i++) {
                 const nextL = l * (0.65 + Math.random()*0.2);
-                const nextA = a + (Math.random()-0.5)*1.1;
+                const nextA = a + (Math.random()-0.5)*1.3;
                 branch(nx, ny, nextL, nextA, w * 0.65, it - 1);
             }
         } else {
-            // Pine Needle Clusters
-            tX.fillStyle = `rgba(10, ${20 + depth*20}, 10, 0.15)`;
-            for(let i=0; i<5; i++) {
+            // Detailed Pine Clusters
+            tX.fillStyle = `rgba(5, ${15 + depth*20}, 5, 0.12)`;
+            for(let j=0; j<15; j++) {
                 tX.beginPath();
-                tX.arc(nx+(Math.random()-0.5)*20, ny+(Math.random()-0.5)*20, 5+Math.random()*15, 0, Math.PI*2);
+                tX.arc(nx+(Math.random()-0.5)*25, ny+(Math.random()-0.5)*25, 5+Math.random()*15, 0, Math.PI*2);
                 tX.fill();
             }
         }
     }
     
-    branch(tC.width/2, tC.height-10, height/4, 0, bw, 10);
+    branch(tC.width/2, tC.height-20, height/4, 0, height/14, 10);
     return tC;
 }
+
+// --- INITIALIZATION ---
 
 function init() {
     w = canvas.width = window.innerWidth;
     h = canvas.height = window.innerHeight;
-    player = { x: 500, y: h - 110, vx: 0, facing: 1, cycle: 0 };
     
-    stars = Array.from({length: 400}, () => ({ 
-        x: Math.random()*w, y: Math.random()*h*0.8, s: Math.random()*1.5, o: Math.random() 
+    player = { 
+        x: 450, y: h - 110, vx: 0, 
+        facing: 1, cycle: 0, 
+        armSway: 0, bob: 0,
+        spineLean: 0
+    };
+    
+    stars = Array.from({length: 450}, () => ({ 
+        x: Math.random()*w, y: Math.random()*h*0.8, s: Math.random()*1.8, o: Math.random() 
     }));
     
-    fog = Array.from({length: 80}, () => ({ 
-        x: Math.random()*w, y: h - Math.random()*350, s: 180+Math.random()*220, v: 0.15+Math.random()*0.4 
+    fogLayers = Array.from({length: 85}, () => ({ 
+        x: Math.random()*w, y: h - Math.random()*400, s: 200+Math.random()*250, v: 0.1+Math.random()*0.35 
     }));
 
     groundNodes = [];
-    for(let i=0; i<1000; i++) {
+    for(let i=0; i<1200; i++) {
         groundNodes.push({ 
-            x: i*20 - 10000, 
-            y: h-100 + (Math.sin(i*0.2)*12) + (Math.random()*7) 
+            x: i*18 - 10000, 
+            y: h-100 + (Math.sin(i*0.22)*12) + (Math.random()*8),
+            root: Math.random() > 0.96 
         });
     }
 
     trees = [];
-    for(let i=0; i<95; i++) {
-        const z = Math.random()*1.2+0.2;
+    for(let i=0; i<100; i++) {
+        const z = Math.random()*1.3 + 0.2;
+        const th = 400 + Math.random()*500;
         trees.push({ 
-            x: Math.random()*20000-10000, 
+            x: Math.random()*22000-11000, 
             z: z, 
-            sprite: createUltraTree(380+Math.random()*450, z) 
+            sprite: createUltraTree(th, z) 
         });
     }
     trees.sort((a,b) => a.z - b.z);
     
-    sign = { x: 1000, sprite: createSign() };
+    sign = { x: 1250, sprite: createHyperSign() };
 }
 
-// --- RENDER & ANIMATION ---
+// --- HYPER-REALISTIC IK CHARACTER ENGINE ---
 
 function drawPlayer(x, y, p) {
-    ctx.save(); ctx.translate(x, y); ctx.fillStyle = "#010101";
-    
-    const bob = Math.abs(Math.sin(p.cycle * 2.2)) * 5;
-    const legSway = Math.sin(p.cycle) * 16;
-    
-    // Legs with joints
-    ctx.fillRect(-6, 35 - bob, 5, 20 + legSway);
-    ctx.fillRect(4, 35 - bob, 5, 20 - legSway);
-    
-    // Torso & Head
-    ctx.beginPath(); ctx.ellipse(0, 15 - bob, 13, 24, 0, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(p.facing*5, -10 - bob, 9, 0, Math.PI*2); ctx.fill();
-    
-    // Lantern Arm Rig
-    const lx = p.facing*36 + (Math.sin(p.cycle)*4);
-    const ly = 16 + (Math.cos(p.cycle)*5);
-    ctx.strokeStyle="#010101"; ctx.lineWidth=5; 
-    ctx.beginPath(); ctx.moveTo(0, 5-bob); ctx.lineTo(lx, ly); ctx.stroke();
-    
-    // Lantern Body
-    ctx.fillStyle="#080808"; ctx.fillRect(lx-6, ly, 12, 20);
-    ctx.fillStyle="#ffaa00"; ctx.shadowBlur=40; ctx.shadowColor="#fa0";
-    ctx.fillRect(lx-4, ly+4, 8, 12); ctx.shadowBlur=0;
-    
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = "#010101";
+
+    const walkSpeed = Math.abs(p.vx);
+    p.bob = Math.sin(p.cycle * 2.2) * 5;
+    const legSway = Math.sin(p.cycle) * 18;
+    p.spineLean = THREE_Lerp(p.spineLean, (p.vx * 0.04), 0.1);
+
+    // Head & Neck
+    ctx.beginPath();
+    ctx.arc(p.facing * 5, -12 + (p.bob * 0.4), 9, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Jointed Torso (Flexible Spine)
+    ctx.save();
+    ctx.rotate(p.spineLean);
+    ctx.beginPath();
+    ctx.ellipse(0, 15 + p.bob, 14, 25, 0, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
-    return { x: x+lx, y: y+ly+10 };
+
+    // IK Legs Simulation
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = "#010101";
+    ctx.lineCap = "round";
+
+    // Leg Left
+    ctx.beginPath();
+    ctx.moveTo(-5, 30 + p.bob);
+    const kL = { x: -5 + (legSway * 0.6), y: 50 + p.bob };
+    ctx.lineTo(kL.x, kL.y); // Knee
+    ctx.lineTo(-5 + legSway, 68 + p.bob); // Foot
+    ctx.stroke();
+
+    // Leg Right
+    ctx.beginPath();
+    ctx.moveTo(5, 30 + p.bob);
+    const kR = { x: 5 - (legSway * 0.6), y: 50 + p.bob };
+    ctx.lineTo(kR.x, kR.y); // Knee
+    ctx.lineTo(5 - legSway, 68 + p.bob); // Foot
+    ctx.stroke();
+
+    // Lantern Arm Rig (Momentum Physics)
+    const armX = p.facing * 12;
+    const armY = 12 + p.bob;
+    p.armSway = THREE_Lerp(p.armSway, (p.vx * 0.6) + (Math.sin(p.cycle) * 6), 0.08);
+    
+    const lx = armX + p.facing * 28 + p.armSway;
+    const ly = armY + 20 + Math.abs(p.armSway * 0.15);
+
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(armX, armY);
+    ctx.lineTo(lx, ly);
+    ctx.stroke();
+
+    // Lantern Model
+    ctx.fillStyle = "#0c0c0c";
+    ctx.fillRect(lx - 7, ly, 14, 24);
+    ctx.fillStyle = "#ffaa00";
+    ctx.shadowBlur = 50;
+    ctx.shadowColor = "#fa0";
+    ctx.fillRect(lx - 4, ly + 5, 8, 14);
+    ctx.shadowBlur = 0;
+
+    ctx.restore();
+    return { x: x + lx, y: y + ly + 12 };
 }
+
+function THREE_Lerp(a, b, t) { return a + (b - a) * t; }
+
+// --- ENGINE LOOP ---
 
 function update() {
     if(!active) return;
-    if(zoom.active) { 
-        zoom.timer--; if(zoom.timer <= 0) zoom.active = false; 
-        sfxSteps.pause(); return; 
-    }
     
+    if(zoom.active) {
+        zoom.timer--;
+        if(zoom.timer <= 0) zoom.active = false;
+        sfxSteps.pause(); return;
+    }
+
     const accel = 0.9;
     if (keys['KeyA']) { player.vx -= accel; player.facing = -1; player.cycle += 0.16; }
     if (keys['KeyD']) { player.vx += accel; player.facing = 1; player.cycle += 0.16; }
     
-    // Left Invisible Barrier
-    if (player.x < 450) { player.x = 450; player.vx = 0; }
+    // Invisible Left Barrier
+    if (player.x < 420) { player.x = 420; player.vx = 0; }
     
-    player.vx *= 0.88; player.x += player.vx;
+    player.vx *= 0.88;
+    player.x += player.vx;
 
-    // Audio Logic
+    // SFX Synchronicity
     if(Math.abs(player.vx) > 0.4) { if(sfxSteps.paused) sfxSteps.play().catch(()=>{}); }
     else { sfxSteps.pause(); }
 
-    // Interaction
-    if(Math.abs(player.x - sign.x) < 70 && keys['KeyE']) { 
-        zoom.active = true; zoom.timer = 180; 
+    // Sign Zoom Interaction
+    if(Math.abs(player.x - sign.x) < 80 && keys['KeyE']) {
+        zoom.active = true; zoom.timer = 180;
     }
-    
-    // Fog Drift
-    fog.forEach(f => { f.x -= (f.v + player.vx*0.05); if(f.x < -f.s) f.x = w+f.s; if(f.x > w+f.s) f.x = -f.s; });
+
+    fogLayers.forEach(f => { f.x -= (f.v + player.vx*0.04); if(f.x < -f.s) f.x = w+f.s; if(f.x > w+f.s) f.x = -f.s; });
 }
 
 function render() {
-    // Background Sky
     const sky = ctx.createLinearGradient(0,0,0,h);
-    sky.addColorStop(0, '#000005'); sky.addColorStop(1, '#050515');
+    sky.addColorStop(0, '#000003'); sky.addColorStop(1, '#06061a');
     ctx.fillStyle = sky; ctx.fillRect(0,0,w,h);
     
     stars.forEach(s => { ctx.globalAlpha = s.o * Math.random(); ctx.fillStyle="#fff"; ctx.fillRect(s.x, s.y, s.s, s.s); });
 
-    // Zoom Math
     zoom.val = zoom.active ? Math.min(1, zoom.val + 0.04) : Math.max(0, zoom.val - 0.04);
 
     ctx.save();
     if(zoom.val > 0) {
-        const s = 1 + zoom.val * 2.5;
+        const scale = 1 + zoom.val * 3;
         const targetX = (sign.x - player.x) + w/2;
-        ctx.translate(w/2 - targetX * s, h/2 - (h-150) * s);
-        ctx.scale(s, s);
+        ctx.translate(w/2 - targetX * scale, h/2 - (h-160) * scale);
+        ctx.scale(scale, scale);
     }
 
-    // Parallax Trees
+    // Parallax Render Depth
     trees.forEach(t => {
         const xp = (t.x - player.x) * t.z + w/2 - t.sprite.width/2;
-        if(xp > -800 && xp < w+800) {
+        if(xp > -1000 && xp < w+1000) {
             const dist = Math.abs(xp + t.sprite.width/2 - w/2);
-            ctx.globalAlpha = Math.max(0.12, (1 - dist/900)) * t.z;
-            ctx.drawImage(t.sprite, xp, h - 110 - t.sprite.height + 25);
+            ctx.globalAlpha = Math.max(0.15, (1 - dist/1000)) * t.z;
+            ctx.drawImage(t.sprite, xp, h - 120 - t.sprite.height + 25);
         }
     });
 
-    // Fog Layer
-    ctx.globalAlpha = 0.06; ctx.fillStyle = "#2d353d";
-    fog.forEach(f => { ctx.beginPath(); ctx.arc(f.x, f.y, f.s, 0, Math.PI*2); ctx.fill(); });
+    // Atmospheric Fog (Layered)
+    ctx.globalAlpha = 0.07; ctx.fillStyle = "#333d45";
+    fogLayers.forEach(f => { ctx.beginPath(); ctx.arc(f.x, f.y, f.s, 0, Math.PI*2); ctx.fill(); });
 
-    // Ground Silhouette
-    ctx.globalAlpha = 1; ctx.beginPath(); ctx.moveTo(-100, h);
+    // Ground Silhouette & Procedural Displacement
+    ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.moveTo(-100, h);
     for(let p of groundNodes) { ctx.lineTo((p.x - player.x) + w/2, p.y); }
     ctx.lineTo(w+100, h); ctx.fillStyle = "#010101"; ctx.fill();
 
-    // Sign Rendering
-    ctx.drawImage(sign.sprite, (sign.x - player.x) + w/2 - 80, h - 220);
+    // Root Micro-Detailing
+    ctx.strokeStyle = "rgba(255,255,255,0.01)"; ctx.lineWidth = 1;
+    groundNodes.forEach(n => {
+        if(n.root) {
+            const rx = (n.x - player.x) + w/2;
+            ctx.beginPath(); ctx.moveTo(rx, n.y); ctx.lineTo(rx+10, n.y-5); ctx.stroke();
+        }
+    });
 
-    // Character Rig
+    // Object Rendering
+    ctx.drawImage(sign.sprite, (sign.x - player.x) + w/2 - 100, h - 250);
+
+    // Character Rendering
     const lp = drawPlayer(w/2, player.y, player);
 
-    // Advanced Post-Processing & Lighting
+    // Advanced Post-Lighting Pass
     if(active) {
-        const flicker = Math.random() * 20;
-        
-        // Pass 1: Lighten objects
+        const flicker = Math.random() * 25;
         const lG = ctx.createRadialGradient(lp.x, lp.y, 0, lp.x, lp.y, 550 + flicker);
-        lG.addColorStop(0, 'rgba(255, 180, 50, 0.25)');
-        lG.addColorStop(0.6, 'rgba(40, 30, 10, 0.1)');
-        lG.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.globalCompositeOperation = 'screen';
-        ctx.fillStyle = lG; ctx.fillRect(-w, -h, w*3, h*3);
-
-        // Pass 2: The Void
-        const darkG = ctx.createRadialGradient(lp.x, lp.y, 50, lp.x, lp.y, 450 + flicker);
-        darkG.addColorStop(0, 'rgba(0,0,0,0)');
-        darkG.addColorStop(1, 'rgba(0,0,0,0.99)');
+        lG.addColorStop(0, 'rgba(255, 180, 50, 0.4)');
+        lG.addColorStop(0.5, 'rgba(40, 30, 15, 0.6)');
+        lG.addColorStop(1, 'rgba(0, 0, 0, 0.998)');
         ctx.globalCompositeOperation = 'multiply';
-        ctx.fillStyle = darkG; ctx.fillRect(-w, -h, w*3, h*3);
+        ctx.fillStyle = lG; ctx.fillRect(-w*3, -h*3, w*7, h*7);
+        ctx.globalCompositeOperation = 'source-over';
     } else {
         ctx.fillStyle = "black"; ctx.fillRect(0,0,w,h);
     }
     
-    ctx.globalCompositeOperation = 'source-over';
     ctx.restore();
 }
 
-function run() { update(); render(); requestAnimationFrame(run); }
+function loop() { update(); render(); requestAnimationFrame(loop); }
 
-window.addEventListener('keydown', e => { keys[e.code] = true; startEverything(); });
+window.addEventListener('keydown', e => { keys[e.code] = true; igniteEngine(); });
 window.addEventListener('keyup', e => keys[e.code] = false);
-window.addEventListener('mousedown', startEverything);
-window.onresize = init; init(); run();
+window.addEventListener('mousedown', igniteEngine);
+window.onresize = init; init(); loop();
 </script>
 </body>
 </html>
