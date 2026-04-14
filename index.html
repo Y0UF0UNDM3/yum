@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Nature Explorer</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+        #overlay {
+            position: absolute; top: 20px; left: 20px; color: #fff;
+            background: rgba(0, 0, 0, 0.4); padding: 15px; border-radius: 8px;
+            pointer-events: none; border: 1px solid rgba(255,255,255,0.2);
+        }
+        kbd {
+            background: #eee; color: #333; padding: 2px 6px;
+            border-radius: 4px; border: 1px solid #999; font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div id="overlay">
+        <h2 style="margin-top:0">3D Explorer</h2>
+        <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</p>
+        <p><kbd>Space</kbd> Jump</p>
+        <p>Click screen to aim/look</p>
+    </div>
+
+    <script type="importmap">
+        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // --- SCENE SETUP ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb); // Sky blue
+        scene.fog = new THREE.Fog(0x87ceeb, 20, 100);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        // --- LIGHTING ---
+        const sun = new THREE.DirectionalLight(0xfff5e1, 1.5);
+        sun.position.set(50, 100, 50);
+        sun.castShadow = true;
+        scene.add(sun);
+        scene.add(new THREE.AmbientLight(0x404040, 0.6));
+
+        // --- GROUND ---
+        const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(1000, 1000),
+            new THREE.MeshStandardMaterial({ color: 0x3a5a40 })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // --- PROCEDURAL TREES ---
+        function createTree(x, z) {
+            const tree = new THREE.Group();
+            const trunk = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.2, 0.3, 2.5, 8),
+                new THREE.MeshStandardMaterial({ color: 0x4a3728 })
+            );
+            trunk.position.y = 1.25;
+            trunk.castShadow = true;
+            tree.add(trunk);
+
+            for (let i = 0; i < 3; i++) {
+                const leaves = new THREE.Mesh(
+                    new THREE.ConeGeometry(1.8 - i * 0.4, 2.5, 8),
+                    new THREE.MeshStandardMaterial({ color: 0x1b4332 })
+                );
+                leaves.position.y = 2.5 + (i * 1.2);
+                leaves.castShadow = true;
+                tree.add(leaves);
+            }
+            tree.position.set(x, 0, z);
+            scene.add(tree);
+        }
+
+        for (let i = 0; i < 60; i++) {
+            createTree(Math.random() * 100 - 50, Math.random() * 100 - 50);
+        }
+
+        // --- PHYSICS & CONTROLS ---
+        let velocity = new THREE.Vector3(), direction = new THREE.Vector3();
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
+        const playerHeight = 1.7;
+        camera.position.y = playerHeight;
+
+        document.addEventListener('keydown', (e) => {
+            if(e.code === 'KeyW') moveForward = true;
+            if(e.code === 'KeyS') moveBackward = true;
+            if(e.code === 'KeyA') moveLeft = true;
+            if(e.code === 'KeyD') moveRight = true;
+            if(e.code === 'Space' && canJump) { velocity.y += 10; canJump = false; }
+        });
+        document.addEventListener('keyup', (e) => {
+            if(e.code === 'KeyW') moveForward = false;
+            if(e.code === 'KeyS') moveBackward = false;
+            if(e.code === 'KeyA') moveLeft = false;
+            if(e.code === 'KeyD') moveRight = false;
+        });
+
+        document.addEventListener('click', () => document.body.requestPointerLock());
+        document.addEventListener('mousemove', (e) => {
+            if (document.pointerLockElement === document.body) {
+                camera.rotation.y -= e.movementX * 0.002;
+                camera.rotation.x -= e.movementY * 0.002;
+                camera.rotation.x = Math.max(-Math.PI/2.1, Math.min(Math.PI/2.1, camera.rotation.x));
+            }
+        });
+        camera.rotation.order = 'YXZ';
+
+        // --- ANIMATION LOOP ---
+        let prevTime = performance.now();
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = (performance.now() - prevTime) / 1000;
+            velocity.x -= velocity.x * 10.0 * delta;
+            velocity.z -= velocity.z * 10.0 * delta;
+            velocity.y -= 25.0 * delta; // Gravity
+
+            direction.z = Number(moveForward) - Number(moveBackward);
+            direction.x = Number(moveRight) - Number(moveLeft);
+            direction.normalize();
+
+            if (moveForward || moveBackward) velocity.z -= direction.z * 120.0 * delta;
+            if (moveLeft || moveRight) velocity.x -= direction.x * 120.0 * delta;
+
+            camera.translateX(-velocity.x * delta);
+            camera.translateZ(velocity.z * delta);
+            camera.position.y += velocity.y * delta;
+
+            if (camera.position.y < playerHeight) {
+                velocity.y = 0; camera.position.y = playerHeight; canJump = true;
+            }
+            renderer.render(scene, camera);
+            prevTime = performance.now();
+        }
+        animate();
+    </script>
+</body>
+</html>
