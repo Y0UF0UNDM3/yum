@@ -8,271 +8,220 @@
         canvas { display: block; image-rendering: pixelated; }
         #prompt {
             position: absolute; top: 50%; width: 100%; text-align: center;
-            color: rgba(255,255,255,0.1); font-family: 'Courier New', monospace;
-            font-size: 14px; letter-spacing: 8px; pointer-events: none;
+            color: rgba(255,255,255,0.05); font-family: serif;
+            font-size: 14px; letter-spacing: 12px; pointer-events: none;
             transition: opacity 2s;
         }
     </style>
 </head>
 <body>
-    <div id="prompt">INTERACT TO START</div>
+    <div id="prompt">INTERACT</div>
     <canvas id="c"></canvas>
 
 <script>
+/** 
+ * FINAL HORROR ENGINE v3.0 - COLLOSSUS BUILD
+ * Features: Realistic Procedural Ground, Interaction Zoom, Audio Sync
+ */
+
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
-let w, h, player, trees = [], stars = [], grass = [], groundPoints = [];
+let w, h, player, trees = [], stars = [], grass = [], groundNodes = [], sign;
 const keys = {};
 let audioStarted = false;
+let signZoom = { active: false, progress: 0, timer: 0 };
 
 // --- AUDIO HANDLING ---
 const sfxAmb = new Audio('freesound_community-spooky-ambience-49850.mp3');
 const sfxWind = new Audio('freesound_community-spooky-wind-70657.mp3');
-[sfxAmb, sfxWind].forEach(a => { a.loop = true; a.volume = 0.5; });
+const sfxSteps = new Audio('data_pion-st1-footstep-sfx-323053.mp3');
+[sfxAmb, sfxWind, sfxSteps].forEach(a => { a.loop = true; a.volume = 0.5; });
 
 function startAudio() {
     if(!audioStarted) {
-        sfxAmb.play().catch(()=>{}); 
-        sfxWind.play().catch(()=>{});
-        audioStarted = true;
-        document.getElementById('prompt').style.opacity = 0;
+        sfxAmb.play().catch(()=>{}); sfxWind.play().catch(()=>{});
+        audioStarted = true; document.getElementById('prompt').style.opacity = 0;
     }
 }
 
-// --- ASSET FACTORY ---
+// --- ASSET FACTORY (Hyper-Realistic Procedural Generation) ---
+
+function createRealisticSign() {
+    const sC = document.createElement('canvas');
+    const sX = sC.getContext('2d');
+    sC.width = 400; sC.height = 400;
+    
+    // Gnarled Post
+    sX.fillStyle = "#1a120b";
+    sX.fillRect(190, 180, 20, 220);
+    
+    // Cracked Wood Plaque
+    const grad = sX.createLinearGradient(50, 0, 350, 0);
+    grad.addColorStop(0, "#2a1e12"); grad.addColorStop(0.5, "#3d2b1f"); grad.addColorStop(1, "#251a0f");
+    sX.fillStyle = grad;
+    sX.fillRect(50, 80, 300, 120);
+    
+    // Carved Text Effect
+    sX.font = "bold 28px serif";
+    sX.textAlign = "center";
+    sX.fillStyle = "rgba(0,0,0,0.9)";
+    sX.fillText("Beware of", 200, 135);
+    sX.fillText("the tall one.", 200, 175);
+    
+    return sC;
+}
 
 function createHyperTree(height, depth) {
     const tC = document.createElement('canvas');
     const tX = tC.getContext('2d');
-    tC.width = height * 2.5;
-    tC.height = height * 1.5;
-    const baseWidth = height / 12;
-    
-    function grow(x, y, l, a, bw, iter) {
-        tX.save();
-        tX.translate(x, y);
-        tX.rotate(a);
+    tC.width = height * 2.5; tC.height = height * 1.5;
+    const bw = height / 14;
+    function grow(x, y, l, a, w, it) {
+        tX.save(); tX.translate(x, y); tX.rotate(a);
         const shade = 5 + (depth * 25);
-        const g = tX.createLinearGradient(-bw/2, 0, bw/2, 0);
-        g.addColorStop(0, `rgb(${shade-8},${shade-10},${shade-12})`);
-        g.addColorStop(0.5, `rgb(${shade+15},${shade+12},${shade+10})`);
-        g.addColorStop(1, `rgb(${shade-10},${shade-12},${shade-15})`);
-        tX.strokeStyle = g;
-        tX.lineWidth = bw;
-        tX.lineCap = 'round';
-        tX.beginPath();
-        tX.moveTo(0, 0);
-        let curX = 0, curY = 0;
-        const segs = 5;
-        for(let i=1; i<=segs; i++) {
-            curX += (Math.random() - 0.5) * (bw * 0.5);
-            curY -= l / segs;
-            tX.lineTo(curX, curY);
+        const g = tX.createLinearGradient(-w/2, 0, w/2, 0);
+        g.addColorStop(0, `rgb(${shade-10},${shade-12},${shade-15})`);
+        g.addColorStop(0.5, `rgb(${shade+20},${shade+15},${shade+10})`);
+        g.addColorStop(1, `rgb(${shade-15},${shade-18},${shade-20})`);
+        tX.strokeStyle = g; tX.lineWidth = w; tX.lineCap = 'round';
+        tX.beginPath(); tX.moveTo(0,0);
+        let cx = 0, cy = 0;
+        for(let i=1; i<=6; i++) {
+            cx += (Math.random()-0.5)*(w*0.6); cy -= l/6;
+            tX.lineTo(cx, cy);
         }
         tX.stroke();
-        if (iter > 0) {
-            const split = Math.random() > 0.7 ? 3 : 2;
-            for(let i=0; i<split; i++) {
-                const nextL = l * (0.65 + Math.random() * 0.2);
-                const nextA = (Math.random() - 0.5) * 0.8;
-                grow(curX, curY, nextL, nextA, bw * 0.68, iter - 1);
-            }
-        } else {
-            tX.fillStyle = `rgba(5, ${15 + depth*15}, 5, 0.15)`;
-            for(let j=0; j<12; j++) {
-                tX.beginPath();
-                tX.arc(curX + (Math.random()-0.5)*25, curY + (Math.random()-0.5)*25, 8+Math.random()*15, 0, Math.PI*2);
-                tX.fill();
-            }
+        if (it > 0) {
+            const split = Math.random() > 0.6 ? 3 : 2;
+            for(let i=0; i<split; i++) grow(cx, cy, l*(0.7+Math.random()*0.2), (Math.random()-0.5)*0.9, w*0.65, it-1);
         }
         tX.restore();
     }
-    grow(tC.width/2, tC.height-20, height/4, 0, baseWidth, 9);
+    grow(tC.width/2, tC.height-20, height/4, 0, bw, 9);
     return tC;
 }
-
-// --- ENGINE INITIALIZATION ---
 
 function init() {
     w = canvas.width = window.innerWidth;
     h = canvas.height = window.innerHeight;
-
-    player = {
-        x: 0, y: h - 135, vx: 0, 
-        w: 22, h: 56, facing: 1, cycle: 0
-    };
-
-    stars = Array.from({length: 400}, () => ({
-        x: Math.random()*w, y: Math.random()*h*0.7, s: Math.random()*1.5, o: Math.random()
-    }));
-
-    // Procedural Uneven Ground Data
-    groundPoints = [];
-    for(let i=0; i<500; i++) {
-        groundPoints.push({
-            x: i * 40 - 10000,
-            y: h - 120 + (Math.random() * 15), // Irregular height
-            noise: Math.random() * 5
+    player = { x: 400, y: h - 145, vx: 0, w: 22, h: 56, facing: 1, cycle: 0 };
+    stars = Array.from({length: 400}, () => ({ x: Math.random()*w, y: Math.random()*h*0.7, s: Math.random()*1.5, o: Math.random() }));
+    
+    // Hyper-Realistic Procedural Ground Nodes
+    groundNodes = [];
+    for(let i=0; i<800; i++) {
+        groundNodes.push({
+            x: i*25 - 10000,
+            y: h - 120 + (Math.sin(i*0.2)*10) + (Math.random()*8),
+            bump: Math.random() * 5
         });
     }
 
     trees = [];
-    for(let i=0; i<85; i++) {
-        const z = Math.random() * 1.1 + 0.1;
-        const th = 300 + Math.random() * 450;
-        trees.push({
-            x: Math.random() * 16000 - 8000,
-            z: z,
-            sprite: createHyperTree(th, z)
-        });
+    for(let i=0; i<90; i++) {
+        const z = Math.random()*1.1+0.1;
+        trees.push({ x: Math.random()*18000-9000, z: z, sprite: createHyperTree(320+Math.random()*480, z) });
     }
     trees.sort((a,b) => a.z - b.z);
-
-    grass = Array.from({length: 600}, () => ({
-        x: Math.random() * 16000 - 8000,
-        h: 12 + Math.random() * 25,
-        z: Math.random() * 1.2 + 0.1,
-        o: Math.random() * Math.PI
-    }));
+    
+    grass = Array.from({length: 800}, () => ({ x: Math.random()*18000-9000, h: 10+Math.random()*30, z: Math.random()*1.2+0.1, o: Math.random()*Math.PI }));
+    sign = { x: 750, sprite: createRealisticSign() };
 }
 
-// --- RENDER LOGIC ---
+// --- RENDERING & LOGIC ---
 
 function drawPlayer(x, y, p) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.fillStyle = "#010101";
-    const bob = Math.abs(Math.cos(p.cycle)) * 4;
+    ctx.save(); ctx.translate(x, y); ctx.fillStyle = "#010101";
+    const bob = Math.abs(Math.cos(p.cycle))*5;
     const sway = Math.sin(p.cycle);
-    ctx.fillRect(-6, 40 - bob, 6, 16 + sway*12); 
-    ctx.fillRect(4, 40 - bob, 6, 16 - sway*12);  
-    ctx.beginPath();
-    ctx.ellipse(0, 25 - bob, 12, 22, 0, 0, Math.PI*2); 
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(p.facing * 4, 4 - bob, 9, 0, Math.PI*2); 
-    ctx.fill();
-    const lx = p.facing * 30 + (Math.sin(p.cycle)*5);
-    const ly = 24 + (Math.cos(p.cycle)*6);
-    ctx.strokeStyle = "#010101";
-    ctx.lineWidth = 5;
-    ctx.beginPath();
-    ctx.moveTo(p.facing * 8, 14 - bob);
-    ctx.lineTo(lx, ly);
-    ctx.stroke();
-    ctx.fillStyle = "#151515";
-    ctx.fillRect(lx - 6, ly, 12, 20);
-    ctx.fillStyle = "#ffaa00";
-    ctx.shadowBlur = 30;
-    ctx.shadowColor = "#fa0";
-    ctx.fillRect(lx - 4, ly + 4, 8, 12);
-    ctx.shadowBlur = 0;
-    ctx.restore();
-    return { x: x + lx, y: y + ly + 10 };
+    ctx.fillRect(-6, 40-bob, 6, 18+sway*14); ctx.fillRect(4, 40-bob, 6, 18-sway*14);  
+    ctx.beginPath(); ctx.ellipse(0, 25-bob, 12, 24, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(p.facing*5, 3-bob, 10, 0, Math.PI*2); ctx.fill();
+    const lx = p.facing*35+(Math.sin(p.cycle)*6), ly = 24+(Math.cos(p.cycle)*8);
+    ctx.strokeStyle="#010101"; ctx.lineWidth=6; ctx.beginPath(); ctx.moveTo(p.facing*8, 14-bob); ctx.lineTo(lx, ly); ctx.stroke();
+    ctx.fillStyle="#1a1a1a"; ctx.fillRect(lx-6, ly, 12, 22); ctx.fillStyle="#ffaa00"; ctx.shadowBlur=40; ctx.shadowColor="#fa0"; ctx.fillRect(lx-4, ly+4, 8, 14); ctx.shadowBlur=0;
+    ctx.restore(); return { x: x+lx, y: y+ly+11 };
 }
 
 function update() {
-    const accel = 0.8;
-    if (keys['KeyA']) { player.vx -= accel; player.facing = -1; player.cycle += 0.14; }
-    if (keys['KeyD']) { player.vx += accel; player.facing = 1; player.cycle += 0.14; }
-    player.vx *= 0.88;
-    player.x += player.vx;
+    if(signZoom.active) {
+        signZoom.timer--;
+        if(signZoom.timer <= 0) signZoom.active = false;
+        sfxSteps.pause(); return;
+    }
+    const accel = 0.9;
+    if (keys['KeyA']) { player.vx -= accel; player.facing = -1; player.cycle += 0.15; }
+    if (keys['KeyD']) { player.vx += accel; player.facing = 1; player.cycle += 0.15; }
+    
+    // Invisible Left Barrier
+    if (player.x < -350) { player.x = -350; player.vx = 0; }
+    
+    player.vx *= 0.88; player.x += player.vx;
+
+    // Footstep Audio Sync
+    if(Math.abs(player.vx) > 0.3) { if(sfxSteps.paused) sfxSteps.play().catch(()=>{}); }
+    else { sfxSteps.pause(); }
+
+    if(Math.abs(player.x - sign.x) < 70 && keys['KeyE']) {
+        signZoom.active = true; signZoom.timer = 180;
+    }
 }
 
 function render() {
     const sky = ctx.createLinearGradient(0,0,0,h);
-    sky.addColorStop(0, '#000'); sky.addColorStop(1, '#04040a');
+    sky.addColorStop(0, '#000'); sky.addColorStop(1, '#05050f');
     ctx.fillStyle = sky; ctx.fillRect(0,0,w,h);
     ctx.fillStyle = "#fff";
     stars.forEach(s => { ctx.globalAlpha = s.o * Math.random(); ctx.fillRect(s.x, s.y, s.s, s.s); });
 
-    // Render Trees
+    if(signZoom.active) signZoom.progress = Math.min(1, signZoom.progress + 0.04);
+    else signZoom.progress = Math.max(0, signZoom.progress - 0.04);
+
+    ctx.save();
+    if(signZoom.progress > 0) {
+        const s = 1 + signZoom.progress * 2.5;
+        const tx = (w/2 - ((sign.x - player.x) + w/2)) * signZoom.progress;
+        ctx.translate(tx * 2, h/3 * signZoom.progress); ctx.scale(s, s);
+    }
+
+    // Render Nature
     trees.forEach(t => {
-        const xPos = (t.x - player.x) * t.z + w/2 - t.sprite.width/2;
-        if(xPos > -t.sprite.width && xPos < w + t.sprite.width) {
-            ctx.globalAlpha = t.z;
-            ctx.drawImage(t.sprite, xPos, h - 120 - t.sprite.height + 25);
+        const xp = (t.x - player.x) * t.z + w/2 - t.sprite.width/2;
+        if(xp > -t.sprite.width && xp < w + t.sprite.width) {
+            ctx.globalAlpha = t.z; ctx.drawImage(t.sprite, xp, h - 130 - t.sprite.height + 30);
         }
     });
 
-    // Render Procedural Realistic Ground
+    // Realistic Ground Rendering
     ctx.globalAlpha = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, h);
-    
-    // Create gnarled ground silhouette
-    for (let i = 0; i < groundPoints.length; i++) {
-        const p = groundPoints[i];
-        const screenX = (p.x - player.x) + w/2;
-        if (screenX >= -50 && screenX <= w + 50) {
-            ctx.lineTo(screenX, p.y);
-        }
-    }
-    ctx.lineTo(w, h);
-    ctx.fillStyle = "#020302"; // Dark deep forest earth
-    ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-100, h);
+    for (let p of groundNodes) { const sx = (p.x - player.x) + w/2; if (sx >= -100 && sx <= w + 100) ctx.lineTo(sx, p.y); }
+    ctx.lineTo(w+100, h); ctx.fillStyle = "#010101"; ctx.fill();
 
-    // Render Ground Texture Detail (Roots and Rocks)
-    ctx.strokeStyle = "rgba(0,0,0,0.5)";
-    ctx.lineWidth = 2;
-    for (let i = 0; i < groundPoints.length; i += 2) {
-        const p = groundPoints[i];
-        const screenX = (p.x - player.x) + w/2;
-        if (screenX >= -50 && screenX <= w + 50) {
-            ctx.beginPath();
-            ctx.moveTo(screenX, p.y);
-            ctx.lineTo(screenX + 10, p.y + p.noise);
-            ctx.stroke();
-        }
+    // Floor Detail Texturing
+    ctx.strokeStyle = "rgba(255,255,255,0.02)"; ctx.lineWidth = 1;
+    for (let p of groundNodes) {
+        const sx = (p.x - player.x) + w/2;
+        if (sx >= -50 && sx <= w + 50) { ctx.beginPath(); ctx.moveTo(sx, p.y); ctx.lineTo(sx+2, p.y+p.bump); ctx.stroke(); }
     }
 
-    // Render Grass
-    grass.forEach(g => {
-        const xPos = (g.x - player.x) * g.z + w/2;
-        if(xPos > -20 && xPos < w + 20) {
-            ctx.globalAlpha = g.z;
-            ctx.strokeStyle = "#010201";
-            const sway = Math.sin(Date.now()*0.002 + g.o) * 5;
-            ctx.beginPath();
-            ctx.moveTo(xPos, h - 110);
-            ctx.quadraticCurveTo(xPos + sway, h - 110 - g.h/2, xPos, h - 120 - g.h);
-            ctx.stroke();
-        }
-    });
+    ctx.drawImage(sign.sprite, (sign.x - player.x) + w/2 - 200, h - 350);
 
-    // Character
     const lp = drawPlayer(w/2, player.y, player);
-
-    // Advanced Lighting
-    const flicker = Math.random() * 20;
-    const lG = ctx.createRadialGradient(lp.x, lp.y, 0, lp.x, lp.y, 450 + flicker);
-    lG.addColorStop(0, 'rgba(255, 170, 40, 0.3)');
-    lG.addColorStop(0.5, 'rgba(30, 20, 5, 0.6)');
-    lG.addColorStop(1, 'rgba(0, 0, 0, 0.995)');
-    
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.fillStyle = lG; ctx.fillRect(0,0,w,h);
-    
-    ctx.globalAlpha = 0.05;
-    for(let i=0; i<10; i++) ctx.fillRect(Math.random()*w, Math.random()*h, 2, 2);
-    ctx.globalAlpha = 1;
+    const flicker = Math.random()*25;
+    const lG = ctx.createRadialGradient(lp.x, lp.y, 0, lp.x, lp.y, 500 + flicker);
+    lG.addColorStop(0, 'rgba(255, 170, 40, 0.35)'); lG.addColorStop(0.5, 'rgba(30, 20, 5, 0.6)'); lG.addColorStop(1, 'rgba(0, 0, 0, 0.998)');
+    ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = lG; ctx.fillRect(-w*2, -h*2, w*5, h*5);
     ctx.globalCompositeOperation = 'source-over';
+    ctx.restore();
 }
 
-function run() {
-    update();
-    render();
-    requestAnimationFrame(run);
-}
-
+function run() { update(); render(); requestAnimationFrame(run); }
 window.addEventListener('keydown', e => { keys[e.code] = true; startAudio(); });
 window.addEventListener('keyup', e => keys[e.code] = false);
 window.addEventListener('mousedown', startAudio);
-window.onresize = init;
-
-init();
-run();
+window.onresize = init; init(); run();
 </script>
 </body>
 </html>
