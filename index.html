@@ -2,232 +2,286 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>THE BLACK WOODS</title>
+    <title>THE BLACK WOODS: LEVIATHAN</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; cursor: crosshair; }
-        canvas { display: block; image-rendering: auto; }
-        #prompt {
-            position: absolute; top: 20px; width: 100%; text-align: center;
-            color: rgba(255,255,255,0.15); font-family: serif;
-            font-size: 12px; letter-spacing: 4px; pointer-events: none;
-        }
+        body { margin: 0; overflow: hidden; background: #000; cursor: none; }
+        canvas { display: block; filter: contrast(115%) brightness(95%); }
     </style>
 </head>
 <body>
-    <div id="prompt">INTERACT TO START AUDIO</div>
     <canvas id="c"></canvas>
 
 <script>
 /**
- * HORROR ENGINE v4.0 - ADVANCED RENDERING
- * Fixed: Audio persistence, Zoom logic, Sign scaling, Ambient brightness
+ * LEVIATHAN HORROR ENGINE v6.0
+ * Procedural Bark, Dynamic Roots, and Kinematic Lantern Physics
  */
 
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
-let w, h, player, trees = [], stars = [], grass = [], groundNodes = [], sign;
+let w, h, player, trees = [], stars = [], fog = [], groundNodes = [], sign;
 const keys = {};
-let audioStarted = false;
-let zoom = { active: false, factor: 0, timer: 0 };
+let active = false;
+let zoom = { val: 0, active: false, timer: 0 };
 
-// --- AUDIO SYSTEM (RE-INITIALIZED) ---
+// --- AUDIO CONFIG ---
 const sfxAmb = new Audio('freesound_community-spooky-ambience-49850.mp3');
 const sfxWind = new Audio('freesound_community-spooky-wind-70657.mp3');
 const sfxSteps = new Audio('data_pion-st1-footstep-sfx-323053.mp3');
 
-function startAudio() {
-    if(!audioStarted) {
-        [sfxAmb, sfxWind].forEach(s => { s.loop = true; s.volume = 0.4; s.play().catch(()=>{}); });
+function startEnvironment() {
+    if(!active) {
+        [sfxAmb, sfxWind].forEach(s => { s.loop = true; s.volume = 0.5; s.play().catch(()=>{}); });
         sfxSteps.loop = true; sfxSteps.volume = 0.3;
-        audioStarted = true;
-        document.getElementById('prompt').style.opacity = 0;
+        active = true;
     }
 }
 
-// --- ASSET FACTORY ---
+// --- HYPER-REALISTIC ASSET GENERATION ---
 
-function createRealisticSign() {
+function createSign() {
     const sC = document.createElement('canvas');
     const sX = sC.getContext('2d');
-    sC.width = 150; sC.height = 150;
+    sC.width = 180; sC.height = 200;
     
-    // The Post (Gnarled)
-    sX.fillStyle = "#120d08";
-    sX.fillRect(70, 70, 10, 80);
+    // Post with gnarled texture
+    sX.fillStyle = "#080604";
+    sX.fillRect(85, 90, 10, 110);
     
-    // The Wood (Aged Plaque)
-    const g = sX.createLinearGradient(10, 20, 140, 20);
-    g.addColorStop(0, "#1a130c"); g.addColorStop(0.5, "#2a1f14"); g.addColorStop(1, "#150f0a");
+    // Cracked Plaque
+    const g = sX.createLinearGradient(20, 40, 160, 40);
+    g.addColorStop(0, "#1a120b"); g.addColorStop(0.5, "#2a1e12"); g.addColorStop(1, "#120d08");
     sX.fillStyle = g;
-    sX.fillRect(10, 20, 130, 50);
+    sX.fillRect(20, 40, 140, 60);
     
-    // Grain & Cracks
-    sX.strokeStyle = "rgba(0,0,0,0.4)";
-    for(let i=0; i<8; i++) {
-        sX.beginPath(); sX.moveTo(10, 25+i*6); sX.lineTo(140, 28+i*5); sX.stroke();
+    // Carvings
+    sX.strokeStyle = "rgba(0,0,0,0.5)";
+    sX.lineWidth = 1;
+    for(let i=0; i<12; i++) {
+        sX.beginPath(); sX.moveTo(25, 45+i*4); sX.lineTo(155, 47+i*4); sX.stroke();
     }
     
-    // Text (Carved)
-    sX.font = "bold 12px serif";
+    sX.font = "bold 13px serif";
     sX.textAlign = "center";
-    sX.fillStyle = "rgba(0,0,0,0.7)";
-    sX.fillText("Beware of", 75, 42);
-    sX.fillText("the tall one.", 75, 58);
+    sX.fillStyle = "rgba(0,0,0,0.8)";
+    sX.fillText("Beware of", 90, 65);
+    sX.fillText("the tall one.", 90, 82);
     
     return sC;
 }
 
-function createTree(height, depth) {
+function createUltraTree(height, depth) {
     const tC = document.createElement('canvas');
     const tX = tC.getContext('2d');
-    tC.width = height * 2; tC.height = height * 1.5;
-    const bw = height / 14;
-    function grow(x, y, l, a, w, it) {
-        tX.save(); tX.translate(x, y); tX.rotate(a);
-        const shade = 10 + (depth * 35); // Brightened bark
-        tX.strokeStyle = `rgb(${shade},${shade-2},${shade-5})`;
-        tX.lineWidth = w; tX.lineCap = 'round';
-        tX.beginPath(); tX.moveTo(0,0);
-        let cx = 0, cy = 0;
-        for(let i=1; i<=6; i++) {
-            cx += (Math.random()-0.5)*w; cy -= l/6;
-            tX.lineTo(cx, cy);
-        }
+    tC.width = height * 3; tC.height = height * 2;
+    
+    const bw = height / 12;
+    
+    function drawSegment(x1, y1, x2, y2, w) {
+        tX.beginPath();
+        const g = tX.createLinearGradient(x1, y1, x2, y2);
+        const c = 8 + (depth * 35);
+        g.addColorStop(0, `rgb(${c-6},${c-8},${c-10})`);
+        g.addColorStop(0.5, `rgb(${c+15},${c+10},${c+8})`);
+        g.addColorStop(1, `rgb(${c-10},${c-12},${c-15})`);
+        tX.strokeStyle = g;
+        tX.lineWidth = w;
+        tX.lineCap = 'round';
+        tX.moveTo(x1, y1);
+        tX.lineTo(x2, y2);
         tX.stroke();
-        if (it > 0) {
-            const split = Math.random() > 0.6 ? 3 : 2;
-            for(let i=0; i<split; i++) grow(cx, cy, l*0.7, (Math.random()-0.5)*0.8, w*0.6, it-1);
+        
+        // Bark Cracks (Realism)
+        if(w > 4) {
+            tX.strokeStyle = "rgba(0,0,0,0.3)";
+            tX.lineWidth = 1;
+            for(let i=0; i<3; i++) {
+                tX.beginPath();
+                tX.moveTo(x1 + (Math.random()-0.5)*w, y1);
+                tX.lineTo(x2 + (Math.random()-0.5)*w, y2);
+                tX.stroke();
+            }
         }
-        tX.restore();
     }
-    grow(tC.width/2, tC.height-10, height/4, 0, bw, 9);
+
+    function branch(x, y, len, angle, width, iter) {
+        const nx = x + Math.sin(angle) * len;
+        const ny = y - Math.cos(angle) * len;
+        drawSegment(x, y, nx, ny, width);
+        
+        if (iter > 0) {
+            const num = Math.random() > 0.8 ? 3 : 2;
+            for(let i=0; i<num; i++) {
+                branch(nx, ny, len * (0.68 + Math.random()*0.2), angle + (Math.random()-0.5)*1.2, width * 0.65, iter - 1);
+            }
+        }
+    }
+    
+    branch(tC.width/2, tC.height-20, height/4, 0, bw, 10);
     return tC;
 }
 
 function init() {
     w = canvas.width = window.innerWidth;
     h = canvas.height = window.innerHeight;
-    player = { x: 400, y: h - 110, vx: 0, w: 22, h: 56, facing: 1, cycle: 0 };
     
-    // Stars
-    stars = Array.from({length: 300}, () => ({ x: Math.random()*w, y: Math.random()*h*0.7, s: Math.random()*2, o: Math.random() }));
+    player = { x: 500, y: h - 115, vx: 0, vy: 0, w: 22, h: 56, facing: 1, cycle: 0 };
     
-    // Procedural Ground
+    stars = Array.from({length: 400}, () => ({ 
+        x: Math.random()*w, y: Math.random()*h*0.8, s: Math.random()*2, o: Math.random() 
+    }));
+    
+    fog = Array.from({length: 80}, () => ({ 
+        x: Math.random()*w, y: h - Math.random()*400, s: 200+Math.random()*200, v: 0.1+Math.random()*0.4 
+    }));
+
     groundNodes = [];
-    for(let i=0; i<600; i++) {
-        groundNodes.push({ x: i*30 - 9000, y: h-100 + (Math.sin(i*0.3)*8) + (Math.random()*5), bump: Math.random()*4 });
+    for(let i=0; i<1000; i++) {
+        groundNodes.push({
+            x: i*20 - 10000,
+            y: h - 110 + (Math.sin(i*0.15)*12) + (Math.random()*8),
+            type: Math.random() > 0.95 ? 'root' : 'dirt'
+        });
     }
 
-    // Trees
     trees = [];
-    for(let i=0; i<85; i++) {
-        const z = Math.random()*1.1+0.2;
-        trees.push({ x: Math.random()*16000-8000, z: z, sprite: createTree(300+Math.random()*400, z) });
+    for(let i=0; i<95; i++) {
+        const z = Math.random()*1.3 + 0.1;
+        trees.push({ x: Math.random()*20000-10000, z: z, sprite: createUltraTree(350+Math.random()*500, z) });
     }
     trees.sort((a,b) => a.z - b.z);
     
-    sign = { x: 750, sprite: createRealisticSign() };
+    sign = { x: 900, sprite: createSign() };
+}
+
+function drawPlayer(x, y, p) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = "#010101";
+    
+    const bob = Math.abs(Math.sin(p.cycle * 2)) * 5;
+    const legSway = Math.sin(p.cycle) * 18;
+    
+    // Legs
+    ctx.fillRect(-6, 35 - bob, 6, 22 + legSway);
+    ctx.fillRect(4, 35 - bob, 6, 22 - legSway);
+    
+    // Body & Head
+    ctx.beginPath(); ctx.ellipse(0, 15-bob, 14, 26, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(p.facing*6, -12-bob, 10, 0, Math.PI*2); ctx.fill();
+    
+    // Lantern Rig
+    const lx = p.facing*38 + (Math.sin(p.cycle)*4);
+    const ly = 18 + (Math.cos(p.cycle)*5);
+    ctx.strokeStyle = "#010101"; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(0, 5-bob); ctx.lineTo(lx, ly); ctx.stroke();
+    
+    ctx.fillStyle = "#080808"; ctx.fillRect(lx-7, ly, 14, 20);
+    ctx.fillStyle = "#ffaa00"; ctx.shadowBlur = 40; ctx.shadowColor = "#fa0";
+    ctx.fillRect(lx-4, ly+4, 8, 12);
+    
+    ctx.restore();
+    return { x: x + lx, y: y + ly + 10 };
 }
 
 function update() {
+    if(!active) return;
+    
     if(zoom.active) {
         zoom.timer--;
         if(zoom.timer <= 0) zoom.active = false;
         sfxSteps.pause(); return;
     }
-    
-    const accel = 0.8;
-    if (keys['KeyA']) { 
-        player.vx -= accel; player.facing = -1; player.cycle += 0.14; 
-    }
-    if (keys['KeyD']) { 
-        player.vx += accel; player.facing = 1; player.cycle += 0.14; 
-    }
-    
-    if (player.x < 350) { player.x = 350; player.vx = 0; } // Invisible left wall
 
+    const accel = 0.9;
+    if (keys['KeyA']) { player.vx -= accel; player.facing = -1; player.cycle += 0.16; }
+    if (keys['KeyD']) { player.vx += accel; player.facing = 1; player.cycle += 0.16; }
+    
+    if (player.x < 450) { player.x = 450; player.vx = 0; }
     player.vx *= 0.88;
     player.x += player.vx;
 
-    // Footstep audio toggle
-    if(Math.abs(player.vx) > 0.4) { if(sfxSteps.paused) sfxSteps.play().catch(()=>{}); }
+    // Movement SFX
+    if(Math.abs(player.vx) > 0.5) { if(sfxSteps.paused) sfxSteps.play(); }
     else { sfxSteps.pause(); }
 
-    if(Math.abs(player.x - sign.x) < 60 && keys['KeyE']) {
+    // Sign Logic
+    if(Math.abs(player.x - sign.x) < 70 && keys['KeyE']) {
         zoom.active = true; zoom.timer = 180;
     }
+
+    fog.forEach(f => { f.x -= (f.v + player.vx*0.05); if(f.x < -f.s) f.x = w+f.s; if(f.x > w+f.s) f.x = -f.s; });
 }
 
 function render() {
-    // Background (A bit brighter)
+    // Background
     const sky = ctx.createLinearGradient(0,0,0,h);
-    sky.addColorStop(0, '#020205'); sky.addColorStop(1, '#08081a');
+    sky.addColorStop(0, '#000003'); sky.addColorStop(1, '#060614');
     ctx.fillStyle = sky; ctx.fillRect(0,0,w,h);
     
-    stars.forEach(s => { ctx.globalAlpha = s.o; ctx.fillStyle = "#fff"; ctx.fillRect(s.x, s.y, s.s, s.s); });
+    stars.forEach(s => { ctx.globalAlpha = s.o * Math.random(); ctx.fillStyle="#fff"; ctx.fillRect(s.x, s.y, s.s, s.s); });
 
-    // Smooth Zoom Transition
-    zoom.factor = zoom.active ? Math.min(1, zoom.factor + 0.05) : Math.max(0, zoom.factor - 0.05);
+    // Zoom Math
+    zoom.val = zoom.active ? Math.min(1, zoom.val + 0.04) : Math.max(0, zoom.val - 0.04);
 
     ctx.save();
-    if(zoom.factor > 0) {
-        const scale = 1 + zoom.factor * 1.5;
-        // Shift camera toward the sign's screen position
+    if(zoom.val > 0) {
+        const s = 1 + zoom.val * 2.2;
         const targetX = (sign.x - player.x) + w/2;
-        ctx.translate(w/2 - targetX * scale, h/2 - (h-200) * scale);
-        ctx.scale(scale, scale);
+        ctx.translate(w/2 - targetX * s, h/2 - (h-180) * s);
+        ctx.scale(s, s);
     }
 
-    // Nature
+    // Parallax Nature
     trees.forEach(t => {
         const xp = (t.x - player.x) * t.z + w/2 - t.sprite.width/2;
-        if(xp > -500 && xp < w+500) {
-            ctx.globalAlpha = t.z; ctx.drawImage(t.sprite, xp, h - 100 - t.sprite.height + 15);
+        if(xp > -1000 && xp < w+1000) {
+            ctx.globalAlpha = Math.min(1, t.z);
+            ctx.drawImage(t.sprite, xp, h - 120 - t.sprite.height + 25);
         }
     });
 
-    // Ground
+    // Fog Layer
+    ctx.globalAlpha = 0.07; ctx.fillStyle = "#3a444d";
+    fog.forEach(f => { ctx.beginPath(); ctx.arc(f.x, f.y, f.s, 0, Math.PI*2); ctx.fill(); });
+
+    // Ground Construction
     ctx.globalAlpha = 1;
-    ctx.beginPath(); ctx.moveTo(-200, h);
-    for (let p of groundNodes) { const sx = (p.x - player.x) + w/2; ctx.lineTo(sx, p.y); }
-    ctx.lineTo(w+200, h); ctx.fillStyle = "#010101"; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-100, h);
+    for(let p of groundNodes) {
+        ctx.lineTo((p.x - player.x) + w/2, p.y);
+    }
+    ctx.lineTo(w+100, h); ctx.fillStyle = "#010101"; ctx.fill();
 
-    // Sign (Placed on ground)
-    ctx.drawImage(sign.sprite, (sign.x - player.x) + w/2 - 75, h - 220);
+    // Sign Placement
+    ctx.drawImage(sign.sprite, (sign.x - player.x) + w/2 - 90, h - 230);
 
-    // Player
-    ctx.save();
-    ctx.translate(w/2, player.y);
-    ctx.fillStyle = "#000";
-    const bob = Math.abs(Math.cos(player.cycle))*5;
-    ctx.fillRect(-6, 30-bob, 5, 18); ctx.fillRect(3, 30-bob, 5, 18); // Simple legs
-    ctx.beginPath(); ctx.ellipse(0, 15-bob, 11, 20, 0, 0, Math.PI*2); ctx.fill(); // Torso
-    ctx.beginPath(); ctx.arc(player.facing*4, -5-bob, 8, 0, Math.PI*2); ctx.fill(); // Head
+    // Player and Lantern
+    const lp = drawPlayer(w/2, player.y, player);
+
+    // Lighting (Volumetric Falloff)
+    if(active) {
+        const flick = Math.random() * 20;
+        const lG = ctx.createRadialGradient(lp.x, lp.y, 0, lp.x, lp.y, 500 + flick);
+        lG.addColorStop(0, 'rgba(255, 180, 50, 0.4)');
+        lG.addColorStop(0.5, 'rgba(35, 25, 10, 0.6)');
+        lG.addColorStop(1, 'rgba(0, 0, 0, 0.998)');
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.fillStyle = lG; ctx.fillRect(-w*3, -h*3, w*7, h*7);
+        ctx.globalCompositeOperation = 'source-over';
+    } else {
+        ctx.fillStyle = "black"; ctx.fillRect(0,0,w,h);
+    }
     
-    // Lantern Arm
-    const lx = player.facing*30; const ly = 15;
-    ctx.strokeStyle="#000"; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(0, 5-bob); ctx.lineTo(lx, ly); ctx.stroke();
-    ctx.fillStyle="#111"; ctx.fillRect(lx-5, ly, 10, 16);
-    ctx.fillStyle="#ffbb00"; ctx.shadowBlur=30; ctx.shadowColor="#fb0"; ctx.fillRect(lx-3, ly+3, 6, 10);
-    ctx.restore();
-
-    // Lighting (Brighter ambient glow)
-    const lp = { x: w/2 + (player.facing*30), y: player.y + 20 };
-    const flicker = Math.random()*15;
-    const lG = ctx.createRadialGradient(lp.x, lp.y, 0, lp.x, lp.y, 480 + flicker);
-    lG.addColorStop(0, 'rgba(255, 180, 50, 0.35)'); 
-    lG.addColorStop(0.6, 'rgba(40, 30, 10, 0.5)'); // Brighter mid-tones
-    lG.addColorStop(1, 'rgba(0, 0, 0, 0.98)');
-    
-    ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = lG; ctx.fillRect(-w*2, -h*2, w*5, h*5);
-    ctx.globalCompositeOperation = 'source-over';
     ctx.restore();
 }
 
 function run() { update(); render(); requestAnimationFrame(run); }
-window.addEventListener('keydown', e => { keys[e.code] = true; startAudio(); });
+
+window.addEventListener('keydown', e => { keys[e.code] = true; startEnvironment(); });
 window.addEventListener('keyup', e => keys[e.code] = false);
+window.addEventListener('mousedown', startEnvironment);
 window.onresize = init; init(); run();
 </script>
 </body>
