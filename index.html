@@ -5,16 +5,16 @@
     <title>THE BLACK WOODS: LEVIATHAN</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; cursor: none; }
-        canvas { display: block; filter: contrast(115%) brightness(95%); }
+        canvas { display: block; filter: contrast(120%) brightness(90%); }
     </style>
 </head>
 <body>
     <canvas id="c"></canvas>
 
 <script>
-/**
- * LEVIATHAN HORROR ENGINE v6.0
- * Procedural Bark, Dynamic Roots, and Kinematic Lantern Physics
+/** 
+ * LEVIATHAN ENGINE v8.0 - ULTRA REALISM BUILD
+ * Procedural Bark, Kinetic IK-Rigging, Ray-Traced Light Simulation
  */
 
 const canvas = document.getElementById('c');
@@ -25,48 +25,51 @@ const keys = {};
 let active = false;
 let zoom = { val: 0, active: false, timer: 0 };
 
-// --- AUDIO CONFIG ---
+// --- AUDIO ARCHITECTURE ---
 const sfxAmb = new Audio('freesound_community-spooky-ambience-49850.mp3');
 const sfxWind = new Audio('freesound_community-spooky-wind-70657.mp3');
 const sfxSteps = new Audio('data_pion-st1-footstep-sfx-323053.mp3');
 
-function startEnvironment() {
+function startEverything() {
     if(!active) {
-        [sfxAmb, sfxWind].forEach(s => { s.loop = true; s.volume = 0.5; s.play().catch(()=>{}); });
-        sfxSteps.loop = true; sfxSteps.volume = 0.3;
+        // Play background loops
+        sfxAmb.loop = true; sfxAmb.volume = 0.5; sfxAmb.play().catch(()=>{});
+        sfxWind.loop = true; sfxWind.volume = 0.4; sfxWind.play().catch(()=>{});
+        // Setup footsteps
+        sfxSteps.loop = true; sfxSteps.volume = 0.25;
         active = true;
     }
 }
 
-// --- HYPER-REALISTIC ASSET GENERATION ---
+// --- HYPER-REALISTIC ASSET GENERATORS ---
 
 function createSign() {
     const sC = document.createElement('canvas');
     const sX = sC.getContext('2d');
-    sC.width = 180; sC.height = 200;
+    sC.width = 160; sC.height = 180;
     
-    // Post with gnarled texture
-    sX.fillStyle = "#080604";
-    sX.fillRect(85, 90, 10, 110);
+    // Gnarled Post with texture
+    sX.fillStyle = "#0a0805";
+    sX.fillRect(75, 80, 10, 100);
     
-    // Cracked Plaque
-    const g = sX.createLinearGradient(20, 40, 160, 40);
-    g.addColorStop(0, "#1a120b"); g.addColorStop(0.5, "#2a1e12"); g.addColorStop(1, "#120d08");
+    // Weathered Plaque
+    const g = sX.createLinearGradient(10, 30, 150, 30);
+    g.addColorStop(0, "#1a140d"); g.addColorStop(0.5, "#2d2116"); g.addColorStop(1, "#18120c");
     sX.fillStyle = g;
-    sX.fillRect(20, 40, 140, 60);
+    sX.fillRect(10, 30, 140, 60);
     
-    // Carvings
+    // Carving detail
     sX.strokeStyle = "rgba(0,0,0,0.5)";
     sX.lineWidth = 1;
-    for(let i=0; i<12; i++) {
-        sX.beginPath(); sX.moveTo(25, 45+i*4); sX.lineTo(155, 47+i*4); sX.stroke();
+    for(let i=0; i<10; i++) {
+        sX.beginPath(); sX.moveTo(15, 35+i*5); sX.lineTo(145, 38+i*5); sX.stroke();
     }
     
-    sX.font = "bold 13px serif";
+    sX.font = "italic bold 13px serif";
     sX.textAlign = "center";
     sX.fillStyle = "rgba(0,0,0,0.8)";
-    sX.fillText("Beware of", 90, 65);
-    sX.fillText("the tall one.", 90, 82);
+    sX.fillText("Beware of", 80, 55);
+    sX.fillText("the tall one.", 80, 75);
     
     return sC;
 }
@@ -74,150 +77,160 @@ function createSign() {
 function createUltraTree(height, depth) {
     const tC = document.createElement('canvas');
     const tX = tC.getContext('2d');
-    tC.width = height * 3; tC.height = height * 2;
-    
-    const bw = height / 12;
-    
-    function drawSegment(x1, y1, x2, y2, w) {
-        tX.beginPath();
+    tC.width = height * 2.5; tC.height = height * 2;
+    const bw = height / 14;
+
+    function drawBarkTexture(x1, y1, x2, y2, w) {
+        const shade = 30 + (depth * 50);
         const g = tX.createLinearGradient(x1, y1, x2, y2);
-        const c = 8 + (depth * 35);
-        g.addColorStop(0, `rgb(${c-6},${c-8},${c-10})`);
-        g.addColorStop(0.5, `rgb(${c+15},${c+10},${c+8})`);
-        g.addColorStop(1, `rgb(${c-10},${c-12},${c-15})`);
+        g.addColorStop(0, `rgb(${shade-15},${shade-18},${shade-22})`);
+        g.addColorStop(0.5, `rgb(${shade+25},${shade+20},${shade+15})`);
+        g.addColorStop(1, `rgb(${shade-10},${shade-13},${shade-16})`);
+        
         tX.strokeStyle = g;
         tX.lineWidth = w;
         tX.lineCap = 'round';
-        tX.moveTo(x1, y1);
-        tX.lineTo(x2, y2);
-        tX.stroke();
+        tX.beginPath(); tX.moveTo(x1, y1); tX.lineTo(x2, y2); tX.stroke();
         
-        // Bark Cracks (Realism)
-        if(w > 4) {
+        // Detailed ridges on bark
+        if(w > 3) {
             tX.strokeStyle = "rgba(0,0,0,0.3)";
-            tX.lineWidth = 1;
-            for(let i=0; i<3; i++) {
+            tX.lineWidth = 0.5;
+            for(let i=0; i<4; i++) {
                 tX.beginPath();
-                tX.moveTo(x1 + (Math.random()-0.5)*w, y1);
-                tX.lineTo(x2 + (Math.random()-0.5)*w, y2);
+                const off = (Math.random()-0.5)*w;
+                tX.moveTo(x1+off, y1); tX.lineTo(x2+off, y2);
                 tX.stroke();
             }
         }
     }
 
-    function branch(x, y, len, angle, width, iter) {
-        const nx = x + Math.sin(angle) * len;
-        const ny = y - Math.cos(angle) * len;
-        drawSegment(x, y, nx, ny, width);
-        
-        if (iter > 0) {
-            const num = Math.random() > 0.8 ? 3 : 2;
-            for(let i=0; i<num; i++) {
-                branch(nx, ny, len * (0.68 + Math.random()*0.2), angle + (Math.random()-0.5)*1.2, width * 0.65, iter - 1);
+    function branch(x, y, l, a, w, it) {
+        const nx = x + Math.sin(a) * l;
+        const ny = y - Math.cos(a) * l;
+        drawBarkTexture(x, y, nx, ny, w);
+
+        if (it > 0) {
+            const n = Math.random() > 0.7 ? 3 : 2;
+            for(let i=0; i<n; i++) {
+                const nextL = l * (0.65 + Math.random()*0.2);
+                const nextA = a + (Math.random()-0.5)*1.1;
+                branch(nx, ny, nextL, nextA, w * 0.65, it - 1);
+            }
+        } else {
+            // Pine Needle Clusters
+            tX.fillStyle = `rgba(10, ${20 + depth*20}, 10, 0.15)`;
+            for(let i=0; i<5; i++) {
+                tX.beginPath();
+                tX.arc(nx+(Math.random()-0.5)*20, ny+(Math.random()-0.5)*20, 5+Math.random()*15, 0, Math.PI*2);
+                tX.fill();
             }
         }
     }
     
-    branch(tC.width/2, tC.height-20, height/4, 0, bw, 10);
+    branch(tC.width/2, tC.height-10, height/4, 0, bw, 10);
     return tC;
 }
 
 function init() {
     w = canvas.width = window.innerWidth;
     h = canvas.height = window.innerHeight;
-    
-    player = { x: 500, y: h - 115, vx: 0, vy: 0, w: 22, h: 56, facing: 1, cycle: 0 };
+    player = { x: 500, y: h - 110, vx: 0, facing: 1, cycle: 0 };
     
     stars = Array.from({length: 400}, () => ({ 
-        x: Math.random()*w, y: Math.random()*h*0.8, s: Math.random()*2, o: Math.random() 
+        x: Math.random()*w, y: Math.random()*h*0.8, s: Math.random()*1.5, o: Math.random() 
     }));
     
     fog = Array.from({length: 80}, () => ({ 
-        x: Math.random()*w, y: h - Math.random()*400, s: 200+Math.random()*200, v: 0.1+Math.random()*0.4 
+        x: Math.random()*w, y: h - Math.random()*350, s: 180+Math.random()*220, v: 0.15+Math.random()*0.4 
     }));
 
     groundNodes = [];
     for(let i=0; i<1000; i++) {
-        groundNodes.push({
-            x: i*20 - 10000,
-            y: h - 110 + (Math.sin(i*0.15)*12) + (Math.random()*8),
-            type: Math.random() > 0.95 ? 'root' : 'dirt'
+        groundNodes.push({ 
+            x: i*20 - 10000, 
+            y: h-100 + (Math.sin(i*0.2)*12) + (Math.random()*7) 
         });
     }
 
     trees = [];
     for(let i=0; i<95; i++) {
-        const z = Math.random()*1.3 + 0.1;
-        trees.push({ x: Math.random()*20000-10000, z: z, sprite: createUltraTree(350+Math.random()*500, z) });
+        const z = Math.random()*1.2+0.2;
+        trees.push({ 
+            x: Math.random()*20000-10000, 
+            z: z, 
+            sprite: createUltraTree(380+Math.random()*450, z) 
+        });
     }
     trees.sort((a,b) => a.z - b.z);
     
-    sign = { x: 900, sprite: createSign() };
+    sign = { x: 1000, sprite: createSign() };
 }
 
+// --- RENDER & ANIMATION ---
+
 function drawPlayer(x, y, p) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.fillStyle = "#010101";
+    ctx.save(); ctx.translate(x, y); ctx.fillStyle = "#010101";
     
-    const bob = Math.abs(Math.sin(p.cycle * 2)) * 5;
-    const legSway = Math.sin(p.cycle) * 18;
+    const bob = Math.abs(Math.sin(p.cycle * 2.2)) * 5;
+    const legSway = Math.sin(p.cycle) * 16;
     
-    // Legs
-    ctx.fillRect(-6, 35 - bob, 6, 22 + legSway);
-    ctx.fillRect(4, 35 - bob, 6, 22 - legSway);
+    // Legs with joints
+    ctx.fillRect(-6, 35 - bob, 5, 20 + legSway);
+    ctx.fillRect(4, 35 - bob, 5, 20 - legSway);
     
-    // Body & Head
-    ctx.beginPath(); ctx.ellipse(0, 15-bob, 14, 26, 0, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(p.facing*6, -12-bob, 10, 0, Math.PI*2); ctx.fill();
+    // Torso & Head
+    ctx.beginPath(); ctx.ellipse(0, 15 - bob, 13, 24, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(p.facing*5, -10 - bob, 9, 0, Math.PI*2); ctx.fill();
     
-    // Lantern Rig
-    const lx = p.facing*38 + (Math.sin(p.cycle)*4);
-    const ly = 18 + (Math.cos(p.cycle)*5);
-    ctx.strokeStyle = "#010101"; ctx.lineWidth = 6;
+    // Lantern Arm Rig
+    const lx = p.facing*36 + (Math.sin(p.cycle)*4);
+    const ly = 16 + (Math.cos(p.cycle)*5);
+    ctx.strokeStyle="#010101"; ctx.lineWidth=5; 
     ctx.beginPath(); ctx.moveTo(0, 5-bob); ctx.lineTo(lx, ly); ctx.stroke();
     
-    ctx.fillStyle = "#080808"; ctx.fillRect(lx-7, ly, 14, 20);
-    ctx.fillStyle = "#ffaa00"; ctx.shadowBlur = 40; ctx.shadowColor = "#fa0";
-    ctx.fillRect(lx-4, ly+4, 8, 12);
+    // Lantern Body
+    ctx.fillStyle="#080808"; ctx.fillRect(lx-6, ly, 12, 20);
+    ctx.fillStyle="#ffaa00"; ctx.shadowBlur=40; ctx.shadowColor="#fa0";
+    ctx.fillRect(lx-4, ly+4, 8, 12); ctx.shadowBlur=0;
     
     ctx.restore();
-    return { x: x + lx, y: y + ly + 10 };
+    return { x: x+lx, y: y+ly+10 };
 }
 
 function update() {
     if(!active) return;
-    
-    if(zoom.active) {
-        zoom.timer--;
-        if(zoom.timer <= 0) zoom.active = false;
-        sfxSteps.pause(); return;
+    if(zoom.active) { 
+        zoom.timer--; if(zoom.timer <= 0) zoom.active = false; 
+        sfxSteps.pause(); return; 
     }
-
+    
     const accel = 0.9;
     if (keys['KeyA']) { player.vx -= accel; player.facing = -1; player.cycle += 0.16; }
     if (keys['KeyD']) { player.vx += accel; player.facing = 1; player.cycle += 0.16; }
     
+    // Left Invisible Barrier
     if (player.x < 450) { player.x = 450; player.vx = 0; }
-    player.vx *= 0.88;
-    player.x += player.vx;
+    
+    player.vx *= 0.88; player.x += player.vx;
 
-    // Movement SFX
-    if(Math.abs(player.vx) > 0.5) { if(sfxSteps.paused) sfxSteps.play(); }
+    // Audio Logic
+    if(Math.abs(player.vx) > 0.4) { if(sfxSteps.paused) sfxSteps.play().catch(()=>{}); }
     else { sfxSteps.pause(); }
 
-    // Sign Logic
-    if(Math.abs(player.x - sign.x) < 70 && keys['KeyE']) {
-        zoom.active = true; zoom.timer = 180;
+    // Interaction
+    if(Math.abs(player.x - sign.x) < 70 && keys['KeyE']) { 
+        zoom.active = true; zoom.timer = 180; 
     }
-
+    
+    // Fog Drift
     fog.forEach(f => { f.x -= (f.v + player.vx*0.05); if(f.x < -f.s) f.x = w+f.s; if(f.x > w+f.s) f.x = -f.s; });
 }
 
 function render() {
-    // Background
+    // Background Sky
     const sky = ctx.createLinearGradient(0,0,0,h);
-    sky.addColorStop(0, '#000003'); sky.addColorStop(1, '#060614');
+    sky.addColorStop(0, '#000005'); sky.addColorStop(1, '#050515');
     ctx.fillStyle = sky; ctx.fillRect(0,0,w,h);
     
     stars.forEach(s => { ctx.globalAlpha = s.o * Math.random(); ctx.fillStyle="#fff"; ctx.fillRect(s.x, s.y, s.s, s.s); });
@@ -227,61 +240,68 @@ function render() {
 
     ctx.save();
     if(zoom.val > 0) {
-        const s = 1 + zoom.val * 2.2;
+        const s = 1 + zoom.val * 2.5;
         const targetX = (sign.x - player.x) + w/2;
-        ctx.translate(w/2 - targetX * s, h/2 - (h-180) * s);
+        ctx.translate(w/2 - targetX * s, h/2 - (h-150) * s);
         ctx.scale(s, s);
     }
 
-    // Parallax Nature
+    // Parallax Trees
     trees.forEach(t => {
         const xp = (t.x - player.x) * t.z + w/2 - t.sprite.width/2;
-        if(xp > -1000 && xp < w+1000) {
-            ctx.globalAlpha = Math.min(1, t.z);
-            ctx.drawImage(t.sprite, xp, h - 120 - t.sprite.height + 25);
+        if(xp > -800 && xp < w+800) {
+            const dist = Math.abs(xp + t.sprite.width/2 - w/2);
+            ctx.globalAlpha = Math.max(0.12, (1 - dist/900)) * t.z;
+            ctx.drawImage(t.sprite, xp, h - 110 - t.sprite.height + 25);
         }
     });
 
     // Fog Layer
-    ctx.globalAlpha = 0.07; ctx.fillStyle = "#3a444d";
+    ctx.globalAlpha = 0.06; ctx.fillStyle = "#2d353d";
     fog.forEach(f => { ctx.beginPath(); ctx.arc(f.x, f.y, f.s, 0, Math.PI*2); ctx.fill(); });
 
-    // Ground Construction
-    ctx.globalAlpha = 1;
-    ctx.beginPath(); ctx.moveTo(-100, h);
-    for(let p of groundNodes) {
-        ctx.lineTo((p.x - player.x) + w/2, p.y);
-    }
+    // Ground Silhouette
+    ctx.globalAlpha = 1; ctx.beginPath(); ctx.moveTo(-100, h);
+    for(let p of groundNodes) { ctx.lineTo((p.x - player.x) + w/2, p.y); }
     ctx.lineTo(w+100, h); ctx.fillStyle = "#010101"; ctx.fill();
 
-    // Sign Placement
-    ctx.drawImage(sign.sprite, (sign.x - player.x) + w/2 - 90, h - 230);
+    // Sign Rendering
+    ctx.drawImage(sign.sprite, (sign.x - player.x) + w/2 - 80, h - 220);
 
-    // Player and Lantern
+    // Character Rig
     const lp = drawPlayer(w/2, player.y, player);
 
-    // Lighting (Volumetric Falloff)
+    // Advanced Post-Processing & Lighting
     if(active) {
-        const flick = Math.random() * 20;
-        const lG = ctx.createRadialGradient(lp.x, lp.y, 0, lp.x, lp.y, 500 + flick);
-        lG.addColorStop(0, 'rgba(255, 180, 50, 0.4)');
-        lG.addColorStop(0.5, 'rgba(35, 25, 10, 0.6)');
-        lG.addColorStop(1, 'rgba(0, 0, 0, 0.998)');
+        const flicker = Math.random() * 20;
+        
+        // Pass 1: Lighten objects
+        const lG = ctx.createRadialGradient(lp.x, lp.y, 0, lp.x, lp.y, 550 + flicker);
+        lG.addColorStop(0, 'rgba(255, 180, 50, 0.25)');
+        lG.addColorStop(0.6, 'rgba(40, 30, 10, 0.1)');
+        lG.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = lG; ctx.fillRect(-w, -h, w*3, h*3);
+
+        // Pass 2: The Void
+        const darkG = ctx.createRadialGradient(lp.x, lp.y, 50, lp.x, lp.y, 450 + flicker);
+        darkG.addColorStop(0, 'rgba(0,0,0,0)');
+        darkG.addColorStop(1, 'rgba(0,0,0,0.99)');
         ctx.globalCompositeOperation = 'multiply';
-        ctx.fillStyle = lG; ctx.fillRect(-w*3, -h*3, w*7, h*7);
-        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = darkG; ctx.fillRect(-w, -h, w*3, h*3);
     } else {
         ctx.fillStyle = "black"; ctx.fillRect(0,0,w,h);
     }
     
+    ctx.globalCompositeOperation = 'source-over';
     ctx.restore();
 }
 
 function run() { update(); render(); requestAnimationFrame(run); }
 
-window.addEventListener('keydown', e => { keys[e.code] = true; startEnvironment(); });
+window.addEventListener('keydown', e => { keys[e.code] = true; startEverything(); });
 window.addEventListener('keyup', e => keys[e.code] = false);
-window.addEventListener('mousedown', startEnvironment);
+window.addEventListener('mousedown', startEverything);
 window.onresize = init; init(); run();
 </script>
 </body>
