@@ -5,23 +5,22 @@
     <title>THE BLACK WOODS</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; cursor: crosshair; }
-        canvas { display: block; image-rendering: pixelated; }
+        canvas { display: block; image-rendering: auto; }
         #prompt {
-            position: absolute; top: 50%; width: 100%; text-align: center;
-            color: rgba(255,255,255,0.05); font-family: serif;
-            font-size: 14px; letter-spacing: 12px; pointer-events: none;
-            transition: opacity 2s;
+            position: absolute; top: 20px; width: 100%; text-align: center;
+            color: rgba(255,255,255,0.15); font-family: serif;
+            font-size: 12px; letter-spacing: 4px; pointer-events: none;
         }
     </style>
 </head>
 <body>
-    <div id="prompt">INTERACT</div>
+    <div id="prompt">INTERACT TO START AUDIO</div>
     <canvas id="c"></canvas>
 
 <script>
-/** 
- * FINAL HORROR ENGINE v3.0 - COLLOSSUS BUILD
- * Features: Realistic Procedural Ground, Interaction Zoom, Audio Sync
+/**
+ * HORROR ENGINE v4.0 - ADVANCED RENDERING
+ * Fixed: Audio persistence, Zoom logic, Sign scaling, Ambient brightness
  */
 
 const canvas = document.getElementById('c');
@@ -30,188 +29,197 @@ const ctx = canvas.getContext('2d');
 let w, h, player, trees = [], stars = [], grass = [], groundNodes = [], sign;
 const keys = {};
 let audioStarted = false;
-let signZoom = { active: false, progress: 0, timer: 0 };
+let zoom = { active: false, factor: 0, timer: 0 };
 
-// --- AUDIO HANDLING ---
+// --- AUDIO SYSTEM (RE-INITIALIZED) ---
 const sfxAmb = new Audio('freesound_community-spooky-ambience-49850.mp3');
 const sfxWind = new Audio('freesound_community-spooky-wind-70657.mp3');
 const sfxSteps = new Audio('data_pion-st1-footstep-sfx-323053.mp3');
-[sfxAmb, sfxWind, sfxSteps].forEach(a => { a.loop = true; a.volume = 0.5; });
 
 function startAudio() {
     if(!audioStarted) {
-        sfxAmb.play().catch(()=>{}); sfxWind.play().catch(()=>{});
-        audioStarted = true; document.getElementById('prompt').style.opacity = 0;
+        [sfxAmb, sfxWind].forEach(s => { s.loop = true; s.volume = 0.4; s.play().catch(()=>{}); });
+        sfxSteps.loop = true; sfxSteps.volume = 0.3;
+        audioStarted = true;
+        document.getElementById('prompt').style.opacity = 0;
     }
 }
 
-// --- ASSET FACTORY (Hyper-Realistic Procedural Generation) ---
+// --- ASSET FACTORY ---
 
 function createRealisticSign() {
     const sC = document.createElement('canvas');
     const sX = sC.getContext('2d');
-    sC.width = 400; sC.height = 400;
+    sC.width = 150; sC.height = 150;
     
-    // Gnarled Post
-    sX.fillStyle = "#1a120b";
-    sX.fillRect(190, 180, 20, 220);
+    // The Post (Gnarled)
+    sX.fillStyle = "#120d08";
+    sX.fillRect(70, 70, 10, 80);
     
-    // Cracked Wood Plaque
-    const grad = sX.createLinearGradient(50, 0, 350, 0);
-    grad.addColorStop(0, "#2a1e12"); grad.addColorStop(0.5, "#3d2b1f"); grad.addColorStop(1, "#251a0f");
-    sX.fillStyle = grad;
-    sX.fillRect(50, 80, 300, 120);
+    // The Wood (Aged Plaque)
+    const g = sX.createLinearGradient(10, 20, 140, 20);
+    g.addColorStop(0, "#1a130c"); g.addColorStop(0.5, "#2a1f14"); g.addColorStop(1, "#150f0a");
+    sX.fillStyle = g;
+    sX.fillRect(10, 20, 130, 50);
     
-    // Carved Text Effect
-    sX.font = "bold 28px serif";
+    // Grain & Cracks
+    sX.strokeStyle = "rgba(0,0,0,0.4)";
+    for(let i=0; i<8; i++) {
+        sX.beginPath(); sX.moveTo(10, 25+i*6); sX.lineTo(140, 28+i*5); sX.stroke();
+    }
+    
+    // Text (Carved)
+    sX.font = "bold 12px serif";
     sX.textAlign = "center";
-    sX.fillStyle = "rgba(0,0,0,0.9)";
-    sX.fillText("Beware of", 200, 135);
-    sX.fillText("the tall one.", 200, 175);
+    sX.fillStyle = "rgba(0,0,0,0.7)";
+    sX.fillText("Beware of", 75, 42);
+    sX.fillText("the tall one.", 75, 58);
     
     return sC;
 }
 
-function createHyperTree(height, depth) {
+function createTree(height, depth) {
     const tC = document.createElement('canvas');
     const tX = tC.getContext('2d');
-    tC.width = height * 2.5; tC.height = height * 1.5;
+    tC.width = height * 2; tC.height = height * 1.5;
     const bw = height / 14;
     function grow(x, y, l, a, w, it) {
         tX.save(); tX.translate(x, y); tX.rotate(a);
-        const shade = 5 + (depth * 25);
-        const g = tX.createLinearGradient(-w/2, 0, w/2, 0);
-        g.addColorStop(0, `rgb(${shade-10},${shade-12},${shade-15})`);
-        g.addColorStop(0.5, `rgb(${shade+20},${shade+15},${shade+10})`);
-        g.addColorStop(1, `rgb(${shade-15},${shade-18},${shade-20})`);
-        tX.strokeStyle = g; tX.lineWidth = w; tX.lineCap = 'round';
+        const shade = 10 + (depth * 35); // Brightened bark
+        tX.strokeStyle = `rgb(${shade},${shade-2},${shade-5})`;
+        tX.lineWidth = w; tX.lineCap = 'round';
         tX.beginPath(); tX.moveTo(0,0);
         let cx = 0, cy = 0;
         for(let i=1; i<=6; i++) {
-            cx += (Math.random()-0.5)*(w*0.6); cy -= l/6;
+            cx += (Math.random()-0.5)*w; cy -= l/6;
             tX.lineTo(cx, cy);
         }
         tX.stroke();
         if (it > 0) {
             const split = Math.random() > 0.6 ? 3 : 2;
-            for(let i=0; i<split; i++) grow(cx, cy, l*(0.7+Math.random()*0.2), (Math.random()-0.5)*0.9, w*0.65, it-1);
+            for(let i=0; i<split; i++) grow(cx, cy, l*0.7, (Math.random()-0.5)*0.8, w*0.6, it-1);
         }
         tX.restore();
     }
-    grow(tC.width/2, tC.height-20, height/4, 0, bw, 9);
+    grow(tC.width/2, tC.height-10, height/4, 0, bw, 9);
     return tC;
 }
 
 function init() {
     w = canvas.width = window.innerWidth;
     h = canvas.height = window.innerHeight;
-    player = { x: 400, y: h - 145, vx: 0, w: 22, h: 56, facing: 1, cycle: 0 };
-    stars = Array.from({length: 400}, () => ({ x: Math.random()*w, y: Math.random()*h*0.7, s: Math.random()*1.5, o: Math.random() }));
+    player = { x: 400, y: h - 110, vx: 0, w: 22, h: 56, facing: 1, cycle: 0 };
     
-    // Hyper-Realistic Procedural Ground Nodes
+    // Stars
+    stars = Array.from({length: 300}, () => ({ x: Math.random()*w, y: Math.random()*h*0.7, s: Math.random()*2, o: Math.random() }));
+    
+    // Procedural Ground
     groundNodes = [];
-    for(let i=0; i<800; i++) {
-        groundNodes.push({
-            x: i*25 - 10000,
-            y: h - 120 + (Math.sin(i*0.2)*10) + (Math.random()*8),
-            bump: Math.random() * 5
-        });
+    for(let i=0; i<600; i++) {
+        groundNodes.push({ x: i*30 - 9000, y: h-100 + (Math.sin(i*0.3)*8) + (Math.random()*5), bump: Math.random()*4 });
     }
 
+    // Trees
     trees = [];
-    for(let i=0; i<90; i++) {
-        const z = Math.random()*1.1+0.1;
-        trees.push({ x: Math.random()*18000-9000, z: z, sprite: createHyperTree(320+Math.random()*480, z) });
+    for(let i=0; i<85; i++) {
+        const z = Math.random()*1.1+0.2;
+        trees.push({ x: Math.random()*16000-8000, z: z, sprite: createTree(300+Math.random()*400, z) });
     }
     trees.sort((a,b) => a.z - b.z);
     
-    grass = Array.from({length: 800}, () => ({ x: Math.random()*18000-9000, h: 10+Math.random()*30, z: Math.random()*1.2+0.1, o: Math.random()*Math.PI }));
     sign = { x: 750, sprite: createRealisticSign() };
 }
 
-// --- RENDERING & LOGIC ---
-
-function drawPlayer(x, y, p) {
-    ctx.save(); ctx.translate(x, y); ctx.fillStyle = "#010101";
-    const bob = Math.abs(Math.cos(p.cycle))*5;
-    const sway = Math.sin(p.cycle);
-    ctx.fillRect(-6, 40-bob, 6, 18+sway*14); ctx.fillRect(4, 40-bob, 6, 18-sway*14);  
-    ctx.beginPath(); ctx.ellipse(0, 25-bob, 12, 24, 0, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(p.facing*5, 3-bob, 10, 0, Math.PI*2); ctx.fill();
-    const lx = p.facing*35+(Math.sin(p.cycle)*6), ly = 24+(Math.cos(p.cycle)*8);
-    ctx.strokeStyle="#010101"; ctx.lineWidth=6; ctx.beginPath(); ctx.moveTo(p.facing*8, 14-bob); ctx.lineTo(lx, ly); ctx.stroke();
-    ctx.fillStyle="#1a1a1a"; ctx.fillRect(lx-6, ly, 12, 22); ctx.fillStyle="#ffaa00"; ctx.shadowBlur=40; ctx.shadowColor="#fa0"; ctx.fillRect(lx-4, ly+4, 8, 14); ctx.shadowBlur=0;
-    ctx.restore(); return { x: x+lx, y: y+ly+11 };
-}
-
 function update() {
-    if(signZoom.active) {
-        signZoom.timer--;
-        if(signZoom.timer <= 0) signZoom.active = false;
+    if(zoom.active) {
+        zoom.timer--;
+        if(zoom.timer <= 0) zoom.active = false;
         sfxSteps.pause(); return;
     }
-    const accel = 0.9;
-    if (keys['KeyA']) { player.vx -= accel; player.facing = -1; player.cycle += 0.15; }
-    if (keys['KeyD']) { player.vx += accel; player.facing = 1; player.cycle += 0.15; }
     
-    // Invisible Left Barrier
-    if (player.x < -350) { player.x = -350; player.vx = 0; }
+    const accel = 0.8;
+    if (keys['KeyA']) { 
+        player.vx -= accel; player.facing = -1; player.cycle += 0.14; 
+    }
+    if (keys['KeyD']) { 
+        player.vx += accel; player.facing = 1; player.cycle += 0.14; 
+    }
     
-    player.vx *= 0.88; player.x += player.vx;
+    if (player.x < 350) { player.x = 350; player.vx = 0; } // Invisible left wall
 
-    // Footstep Audio Sync
-    if(Math.abs(player.vx) > 0.3) { if(sfxSteps.paused) sfxSteps.play().catch(()=>{}); }
+    player.vx *= 0.88;
+    player.x += player.vx;
+
+    // Footstep audio toggle
+    if(Math.abs(player.vx) > 0.4) { if(sfxSteps.paused) sfxSteps.play().catch(()=>{}); }
     else { sfxSteps.pause(); }
 
-    if(Math.abs(player.x - sign.x) < 70 && keys['KeyE']) {
-        signZoom.active = true; signZoom.timer = 180;
+    if(Math.abs(player.x - sign.x) < 60 && keys['KeyE']) {
+        zoom.active = true; zoom.timer = 180;
     }
 }
 
 function render() {
+    // Background (A bit brighter)
     const sky = ctx.createLinearGradient(0,0,0,h);
-    sky.addColorStop(0, '#000'); sky.addColorStop(1, '#05050f');
+    sky.addColorStop(0, '#020205'); sky.addColorStop(1, '#08081a');
     ctx.fillStyle = sky; ctx.fillRect(0,0,w,h);
-    ctx.fillStyle = "#fff";
-    stars.forEach(s => { ctx.globalAlpha = s.o * Math.random(); ctx.fillRect(s.x, s.y, s.s, s.s); });
+    
+    stars.forEach(s => { ctx.globalAlpha = s.o; ctx.fillStyle = "#fff"; ctx.fillRect(s.x, s.y, s.s, s.s); });
 
-    if(signZoom.active) signZoom.progress = Math.min(1, signZoom.progress + 0.04);
-    else signZoom.progress = Math.max(0, signZoom.progress - 0.04);
+    // Smooth Zoom Transition
+    zoom.factor = zoom.active ? Math.min(1, zoom.factor + 0.05) : Math.max(0, zoom.factor - 0.05);
 
     ctx.save();
-    if(signZoom.progress > 0) {
-        const s = 1 + signZoom.progress * 2.5;
-        const tx = (w/2 - ((sign.x - player.x) + w/2)) * signZoom.progress;
-        ctx.translate(tx * 2, h/3 * signZoom.progress); ctx.scale(s, s);
+    if(zoom.factor > 0) {
+        const scale = 1 + zoom.factor * 1.5;
+        // Shift camera toward the sign's screen position
+        const targetX = (sign.x - player.x) + w/2;
+        ctx.translate(w/2 - targetX * scale, h/2 - (h-200) * scale);
+        ctx.scale(scale, scale);
     }
 
-    // Render Nature
+    // Nature
     trees.forEach(t => {
         const xp = (t.x - player.x) * t.z + w/2 - t.sprite.width/2;
-        if(xp > -t.sprite.width && xp < w + t.sprite.width) {
-            ctx.globalAlpha = t.z; ctx.drawImage(t.sprite, xp, h - 130 - t.sprite.height + 30);
+        if(xp > -500 && xp < w+500) {
+            ctx.globalAlpha = t.z; ctx.drawImage(t.sprite, xp, h - 100 - t.sprite.height + 15);
         }
     });
 
-    // Realistic Ground Rendering
+    // Ground
     ctx.globalAlpha = 1;
-    ctx.beginPath(); ctx.moveTo(-100, h);
-    for (let p of groundNodes) { const sx = (p.x - player.x) + w/2; if (sx >= -100 && sx <= w + 100) ctx.lineTo(sx, p.y); }
-    ctx.lineTo(w+100, h); ctx.fillStyle = "#010101"; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-200, h);
+    for (let p of groundNodes) { const sx = (p.x - player.x) + w/2; ctx.lineTo(sx, p.y); }
+    ctx.lineTo(w+200, h); ctx.fillStyle = "#010101"; ctx.fill();
 
-    // Floor Detail Texturing
-    ctx.strokeStyle = "rgba(255,255,255,0.02)"; ctx.lineWidth = 1;
-    for (let p of groundNodes) {
-        const sx = (p.x - player.x) + w/2;
-        if (sx >= -50 && sx <= w + 50) { ctx.beginPath(); ctx.moveTo(sx, p.y); ctx.lineTo(sx+2, p.y+p.bump); ctx.stroke(); }
-    }
+    // Sign (Placed on ground)
+    ctx.drawImage(sign.sprite, (sign.x - player.x) + w/2 - 75, h - 220);
 
-    ctx.drawImage(sign.sprite, (sign.x - player.x) + w/2 - 200, h - 350);
+    // Player
+    ctx.save();
+    ctx.translate(w/2, player.y);
+    ctx.fillStyle = "#000";
+    const bob = Math.abs(Math.cos(player.cycle))*5;
+    ctx.fillRect(-6, 30-bob, 5, 18); ctx.fillRect(3, 30-bob, 5, 18); // Simple legs
+    ctx.beginPath(); ctx.ellipse(0, 15-bob, 11, 20, 0, 0, Math.PI*2); ctx.fill(); // Torso
+    ctx.beginPath(); ctx.arc(player.facing*4, -5-bob, 8, 0, Math.PI*2); ctx.fill(); // Head
+    
+    // Lantern Arm
+    const lx = player.facing*30; const ly = 15;
+    ctx.strokeStyle="#000"; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(0, 5-bob); ctx.lineTo(lx, ly); ctx.stroke();
+    ctx.fillStyle="#111"; ctx.fillRect(lx-5, ly, 10, 16);
+    ctx.fillStyle="#ffbb00"; ctx.shadowBlur=30; ctx.shadowColor="#fb0"; ctx.fillRect(lx-3, ly+3, 6, 10);
+    ctx.restore();
 
-    const lp = drawPlayer(w/2, player.y, player);
-    const flicker = Math.random()*25;
-    const lG = ctx.createRadialGradient(lp.x, lp.y, 0, lp.x, lp.y, 500 + flicker);
-    lG.addColorStop(0, 'rgba(255, 170, 40, 0.35)'); lG.addColorStop(0.5, 'rgba(30, 20, 5, 0.6)'); lG.addColorStop(1, 'rgba(0, 0, 0, 0.998)');
+    // Lighting (Brighter ambient glow)
+    const lp = { x: w/2 + (player.facing*30), y: player.y + 20 };
+    const flicker = Math.random()*15;
+    const lG = ctx.createRadialGradient(lp.x, lp.y, 0, lp.x, lp.y, 480 + flicker);
+    lG.addColorStop(0, 'rgba(255, 180, 50, 0.35)'); 
+    lG.addColorStop(0.6, 'rgba(40, 30, 10, 0.5)'); // Brighter mid-tones
+    lG.addColorStop(1, 'rgba(0, 0, 0, 0.98)');
+    
     ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = lG; ctx.fillRect(-w*2, -h*2, w*5, h*5);
     ctx.globalCompositeOperation = 'source-over';
     ctx.restore();
@@ -220,7 +228,6 @@ function render() {
 function run() { update(); render(); requestAnimationFrame(run); }
 window.addEventListener('keydown', e => { keys[e.code] = true; startAudio(); });
 window.addEventListener('keyup', e => keys[e.code] = false);
-window.addEventListener('mousedown', startAudio);
 window.onresize = init; init(); run();
 </script>
 </body>
