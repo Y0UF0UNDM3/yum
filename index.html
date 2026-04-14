@@ -2,224 +2,268 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Into the Deep Woods</title>
+    <title>THE BLACK WOODS</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #020205; }
-        canvas { display: block; }
-        #vignette {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            box-shadow: inset 0 0 150px rgba(0,0,0,0.9); pointer-events: none;
+        body { margin: 0; overflow: hidden; background: #000; cursor: crosshair; }
+        canvas { display: block; image-rendering: pixelated; }
+        #prompt {
+            position: absolute; top: 50%; width: 100%; text-align: center;
+            color: rgba(255,255,255,0.1); font-family: 'Courier New', monospace;
+            font-size: 14px; letter-spacing: 8px; pointer-events: none;
+            transition: opacity 2s;
         }
     </style>
 </head>
 <body>
-    <div id="vignette"></div>
-    <canvas id="canvas"></canvas>
+    <div id="prompt">INTERACT TO START</div>
+    <canvas id="c"></canvas>
 
 <script>
-const canvas = document.getElementById('canvas');
+/** 
+ * COLOSSUS ENGINE v2.0 - Hyper-Realistic Horror 
+ * No assets folder. No external libraries. Pure Logic.
+ */
+
+const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
-let width, height, player, stars = [], trees = [], grass = [];
-const config = {
-    treeCount: 45,
-    starCount: 150,
-    gravity: 0.4,
-    friction: 0.85
-};
+let w, h, player, trees = [], stars = [], fog = [], grass = [];
+const keys = {};
+let audioStarted = false;
 
-// --- INITIALIZATION ---
-function init() {
-    width = canvas.width = window.innerWidth;
-    height = canvas.height = window.innerHeight;
+// --- AUDIO HANDLING ---
+const sfxAmb = new Audio('freesound_community-spooky-ambience-49850.mp3');
+const sfxWind = new Audio('freesound_community-spooky-wind-70657.mp3');
+[sfxAmb, sfxWind].forEach(a => { a.loop = true; a.volume = 0.5; });
+
+function startAudio() {
+    if(!audioStarted) {
+        sfxAmb.play(); sfxWind.play();
+        audioStarted = true;
+        document.getElementById('prompt').style.opacity = 0;
+    }
+}
+
+// --- ASSET FACTORY (Hyper-Realistic Procedural Trees) ---
+
+function createHyperTree(height, depth) {
+    const tC = document.createElement('canvas');
+    const tX = tC.getContext('2d');
+    tC.width = height * 2;
+    tC.height = height * 1.5;
+
+    const baseWidth = height / 12;
     
+    function grow(x, y, l, a, bw, iter) {
+        tX.save();
+        tX.translate(x, y);
+        tX.rotate(a);
+
+        // Advanced Bark Shading
+        const shade = 5 + (depth * 25);
+        const g = tX.createLinearGradient(-bw/2, 0, bw/2, 0);
+        g.addColorStop(0, `rgb(${shade-8},${shade-10},${shade-12})`);
+        g.addColorStop(0.5, `rgb(${shade+15},${shade+12},${shade+10})`);
+        g.addColorStop(1, `rgb(${shade-10},${shade-12},${shade-15})`);
+
+        tX.strokeStyle = g;
+        tX.lineWidth = bw;
+        tX.lineCap = 'round';
+
+        // Organic Gnarling (Segmented Growth)
+        tX.beginPath();
+        tX.moveTo(0, 0);
+        let curX = 0, curY = 0;
+        const segs = 5;
+        for(let i=1; i<=segs; i++) {
+            curX += (Math.random() - 0.5) * (bw * 0.5);
+            curY -= l / segs;
+            tX.lineTo(curX, curY);
+        }
+        tX.stroke();
+
+        if (iter > 0) {
+            const split = Math.random() > 0.7 ? 3 : 2;
+            for(let i=0; i<split; i++) {
+                const nextL = l * (0.65 + Math.random() * 0.2);
+                const nextA = (Math.random() - 0.5) * 0.8;
+                grow(curX, curY, nextL, nextA, bw * 0.68, iter - 1);
+            }
+        } else {
+            // High-detail leaf/needle clusters
+            tX.fillStyle = `rgba(5, ${15 + depth*15}, 5, 0.15)`;
+            for(let j=0; j<12; j++) {
+                tX.beginPath();
+                tX.arc(curX + (Math.random()-0.5)*25, curY + (Math.random()-0.5)*25, 8+Math.random()*15, 0, Math.PI*2);
+                tX.fill();
+            }
+        }
+        tX.restore();
+    }
+
+    grow(tC.width/2, tC.height-20, height/4, 0, baseWidth, 9);
+    return tC;
+}
+
+// --- ENGINE INITIALIZATION ---
+
+function init() {
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+
     player = {
-        x: 200, y: height - 100, w: 22, h: 48,
-        vx: 0, vy: 0, grounded: false,
-        lanternPos: { x: 0, y: 0 },
-        facing: 1 // 1 for right, -1 for left
+        x: 0, y: h - 130, vx: 0, vy: 0,
+        w: 22, h: 56, facing: 1, cycle: 0,
+        legR: 0, legL: 0, armR: 0
     };
 
-    // Generate Night Sky
-    stars = Array.from({length: config.starCount}, () => ({
-        x: Math.random() * width,
-        y: Math.random() * (height * 0.7),
-        size: Math.random() * 1.5,
-        twinkle: Math.random() * 5
+    stars = Array.from({length: 400}, () => ({
+        x: Math.random()*w, y: Math.random()*h*0.7, s: Math.random()*1.5, o: Math.random()
     }));
 
-    // Generate Realistic Trees (Back to Front)
     trees = [];
-    for (let i = 0; i < config.treeCount; i++) {
+    for(let i=0; i<85; i++) {
+        const z = Math.random() * 1.1 + 0.1;
+        const th = 300 + Math.random() * 450;
         trees.push({
-            x: Math.random() * width * 5 - width * 2,
-            z: Math.random() * 2 + 0.5, // Parallax depth
-            height: 180 + Math.random() * 150,
-            seed: Math.random() * 1000
+            x: Math.random() * 8000 - 4000,
+            z: z,
+            sprite: createHyperTree(th, z)
         });
     }
-    trees.sort((a, b) => a.z - b.z); // Sort for depth sorting
+    trees.sort((a,b) => a.z - b.z);
 
-    // Generate Ground Grass Blades
-    grass = Array.from({length: 400}, () => ({
-        x: Math.random() * width * 5 - width * 2,
-        h: 5 + Math.random() * 10,
-        sway: Math.random() * Math.PI,
-        z: Math.random() * 1.5 + 0.5
+    grass = Array.from({length: 300}, () => ({
+        x: Math.random() * 8000 - 4000,
+        h: 15 + Math.random() * 20,
+        z: Math.random() * 1.2 + 0.1,
+        o: Math.random() * Math.PI
     }));
 }
 
-// --- RENDERING HELPERS ---
+// --- RENDER LOGIC ---
 
-function drawStarrySky() {
-    // Gradient Sky
-    const sky = ctx.createLinearGradient(0, 0, 0, height);
-    sky.addColorStop(0, '#010103');
-    sky.addColorStop(0.5, '#050510');
-    sky.addColorStop(1, '#0a0a1a');
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, width, height);
-
-    // Moon
-    ctx.shadowBlur = 40;
-    ctx.shadowColor = 'rgba(200, 220, 255, 0.3)';
-    ctx.fillStyle = '#eef';
-    ctx.beginPath();
-    ctx.arc(width * 0.8, 100, 30, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-
-    // Twinkling Stars
-    ctx.fillStyle = '#fff';
-    stars.forEach(s => {
-        const opacity = Math.abs(Math.sin(Date.now() * 0.001 + s.twinkle));
-        ctx.globalAlpha = opacity;
-        ctx.fillRect(s.x, s.y, s.size, s.size);
-    });
-    ctx.globalAlpha = 1.0;
-}
-
-function drawBranch(x, y, len, angle, branchWidth, depth, lightX, lightY) {
+function drawPlayer(x, y, p) {
     ctx.save();
-    
-    // Normal Mapping logic: change branch color based on light position
-    const distToLight = Math.hypot(x - lightX, y - lightY);
-    const lightFactor = Math.max(0, 1 - distToLight / 350);
-    const shadowFactor = (angle < 0) ? 0.3 : 0.7; // Fake 3D lighting
-
     ctx.translate(x, y);
-    ctx.rotate(angle);
+    ctx.fillStyle = "#010101";
+
+    const bob = Math.abs(Math.cos(p.cycle)) * 4;
+    const sway = Math.sin(p.cycle);
+
+    // Dynamic IK-lite Rigging
+    ctx.fillRect(-6, 40 - bob, 6, 16 + sway*12); // Leg L
+    ctx.fillRect(4, 40 - bob, 6, 16 - sway*12);  // Leg R
     
-    // Branch Gradient for 3D rounded look
-    const grad = ctx.createLinearGradient(-branchWidth/2, 0, branchWidth/2, 0);
-    grad.addColorStop(0, '#050505'); // Shadow side
-    grad.addColorStop(0.5, `rgb(${30 + lightFactor * 60}, ${25 + lightFactor * 40}, 20)`);
-    grad.addColorStop(1, '#111'); // Back side
-    
-    ctx.strokeStyle = grad;
-    ctx.lineWidth = branchWidth;
-    ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(0, -len);
+    ctx.ellipse(0, 25 - bob, 12, 22, 0, 0, Math.PI*2); // Body
+    ctx.fill();
+    
+    ctx.beginPath();
+    ctx.arc(p.facing * 4, 4 - bob, 9, 0, Math.PI*2); // Head
+    ctx.fill();
+
+    // Lantern Arm (Inverse Sway)
+    const lx = p.facing * 30 + (Math.sin(p.cycle)*5);
+    const ly = 24 + (Math.cos(p.cycle)*6);
+    ctx.strokeStyle = "#010101";
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(p.facing * 8, 14 - bob);
+    ctx.lineTo(lx, ly);
     ctx.stroke();
 
-    if (depth > 0) {
-        const sway = Math.sin(Date.now() * 0.0005 + x) * 0.05;
-        drawBranch(0, -len, len * 0.75, angle + 0.4 + sway, branchWidth * 0.7, depth - 1, lightX - x, lightY - y);
-        drawBranch(0, -len, len * 0.75, angle - 0.4 - sway, branchWidth * 0.7, depth - 1, lightX - x, lightY - y);
-    } else {
-        // Pine-like Leaves
-        ctx.fillStyle = `rgba(5, ${20 + lightFactor * 50}, 10, 0.6)`;
-        ctx.beginPath();
-        ctx.arc(0, -len, 6, 0, Math.PI * 2);
-        ctx.fill();
-    }
-    
-    ctx.restore();
-}
+    // Lantern Physical Model
+    ctx.fillStyle = "#151515";
+    ctx.fillRect(lx - 6, ly, 12, 20);
+    ctx.fillStyle = "#ffaa00";
+    ctx.shadowBlur = 30;
+    ctx.shadowColor = "#fa0";
+    ctx.fillRect(lx - 4, ly + 4, 8, 12);
+    ctx.shadowBlur = 0;
 
-// --- MAIN LOOP ---
-const keys = {};
-window.onkeydown = e => keys[e.code] = true;
-window.onkeyup = e => keys[e.code] = false;
+    ctx.restore();
+    return { x: x + lx, y: y + ly + 10 };
+}
 
 function update() {
-    if (keys['KeyA']) { player.vx -= 0.6; player.facing = -1; }
-    if (keys['KeyD']) { player.vx += 0.6; player.facing = 1; }
-    if (keys['Space'] && player.grounded) { player.vy = -11; player.grounded = false; }
-
-    player.vx *= config.friction;
-    player.vy += config.gravity;
+    const accel = 0.8;
+    if (keys['KeyA']) { player.vx -= accel; player.facing = -1; player.cycle += 0.14; }
+    if (keys['KeyD']) { player.vx += accel; player.facing = 1; player.cycle += 0.14; }
+    
+    player.vx *= 0.88;
     player.x += player.vx;
-    player.y += player.vy;
-
-    if (player.y > height - 70 - player.h) {
-        player.y = height - 70 - player.h;
-        player.vy = 0;
-        player.grounded = true;
-    }
-
-    // Lantern position (follows player with slight sway)
-    const bob = Math.sin(Date.now() * 0.005) * 3;
-    player.lanternPos.x = width/2 + (player.facing * 18);
-    player.lanternPos.y = player.y + 25 + bob;
 }
 
-function draw() {
-    ctx.clearRect(0, 0, width, height);
-    drawStarrySky();
+function render() {
+    // Background 
+    const sky = ctx.createLinearGradient(0,0,0,h);
+    sky.addColorStop(0, '#000'); sky.addColorStop(1, '#04040a');
+    ctx.fillStyle = sky; ctx.fillRect(0,0,w,h);
 
-    const worldOffset = player.x;
+    ctx.fillStyle = "#fff";
+    stars.forEach(s => { ctx.globalAlpha = s.o * Math.random(); ctx.fillRect(s.x, s.y, s.s, s.s); });
 
-    // Draw Background Layer
+    // Trees (Parallax System)
     trees.forEach(t => {
-        const screenX = (t.x - worldOffset) * t.z + (width / 2);
-        if (screenX > -200 && screenX < width + 200) {
-            ctx.globalAlpha = Math.min(1, t.z / 1.5);
-            drawBranch(screenX, height - 60, t.height, 0, t.height/12, 5, player.lanternPos.x, player.lanternPos.y);
+        const xPos = (t.x - player.x) * t.z + w/2 - t.sprite.width/2;
+        if(xPos > -t.sprite.width && xPos < w + t.sprite.width) {
+            ctx.globalAlpha = t.z;
+            ctx.drawImage(t.sprite, xPos, h - 120 - t.sprite.height + 25);
         }
     });
 
-    // Draw Player
+    // Grass
+    ctx.fillStyle = "#010201";
+    grass.forEach(g => {
+        const xPos = (g.x - player.x) * g.z + w/2;
+        if(xPos > -20 && xPos < w + 20) {
+            ctx.globalAlpha = g.z;
+            const sway = Math.sin(Date.now()*0.002 + g.o) * 5;
+            ctx.beginPath();
+            ctx.moveTo(xPos, h - 120);
+            ctx.quadraticCurveTo(xPos + sway, h - 120 - g.h/2, xPos, h - 120 - g.h);
+            ctx.stroke();
+        }
+    });
+
+    // Floor & Character
     ctx.globalAlpha = 1;
-    ctx.fillStyle = '#0a0a0a'; // Dark silhouette
-    ctx.fillRect(width/2 - player.w/2, player.y, player.w, player.h);
-    
-    // Draw Lantern (The Physical Object)
-    ctx.fillStyle = '#443';
-    ctx.fillRect(player.lanternPos.x - 4, player.lanternPos.y - 4, 8, 10);
-    ctx.fillStyle = '#fb0';
-    ctx.fillRect(player.lanternPos.x - 2, player.lanternPos.y, 4, 6);
+    ctx.fillStyle = "#010101";
+    ctx.fillRect(0, h-120, w, 120);
+    const lp = drawPlayer(w/2, player.y, player);
 
-    // Draw Ground
-    ctx.fillStyle = '#050705';
-    ctx.fillRect(0, height - 70, width, 70);
-
-    // LIGHTING OVERLAY (The Atmosphere)
-    const lanternGrad = ctx.createRadialGradient(
-        player.lanternPos.x, player.lanternPos.y, 5,
-        player.lanternPos.x, player.lanternPos.y, 350
-    );
-    lanternGrad.addColorStop(0, 'rgba(255, 180, 50, 0.25)'); // Lantern core
-    lanternGrad.addColorStop(0.4, 'rgba(100, 60, 20, 0.15)'); // Warm glow
-    lanternGrad.addColorStop(1, 'rgba(0, 0, 0, 0.98)'); // Pitch black
+    // Advanced Multiply-Blend Lighting
+    const flicker = Math.random() * 20;
+    const lG = ctx.createRadialGradient(lp.x, lp.y, 0, lp.x, lp.y, 450 + flicker);
+    lG.addColorStop(0, 'rgba(255, 170, 40, 0.3)');
+    lG.addColorStop(0.5, 'rgba(30, 20, 5, 0.6)');
+    lG.addColorStop(1, 'rgba(0, 0, 0, 0.995)');
     
-    ctx.fillStyle = lanternGrad;
     ctx.globalCompositeOperation = 'multiply';
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = lG; ctx.fillRect(0,0,w,h);
+    
+    // Film Grain & Vignette
+    ctx.globalAlpha = 0.05;
+    for(let i=0; i<10; i++) ctx.fillRect(Math.random()*w, Math.random()*h, 2, 2);
+    ctx.globalAlpha = 1;
+
     ctx.globalCompositeOperation = 'source-over';
 }
 
-function loop() {
+function run() {
     update();
-    draw();
-    requestAnimationFrame(loop);
+    render();
+    requestAnimationFrame(run);
 }
 
-init();
-loop();
+window.addEventListener('keydown', e => { keys[e.code] = true; startAudio(); });
+window.addEventListener('keyup', e => keys[e.code] = false);
+window.addEventListener('mousedown', startAudio);
 window.onresize = init;
+
+init();
+run();
 </script>
 </body>
 </html>
